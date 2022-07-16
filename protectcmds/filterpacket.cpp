@@ -12,8 +12,12 @@
 
 using namespace std;
 
-extern CGlobalVars* g_pGlobals;
 #define NORMAL_SEQ_PACKET "\x00"
+#define GAME_PACKET_TIMEOUT 2
+#define GAME_PACKET_CHECK_TIME 1
+#define MAX_GAME_PACKETS_PER_CHECK_TIME 200
+
+extern CGlobalVars* g_pGlobals;
 
 CDetour *g_pFilter_ShouldDiscardDetour = nullptr;
 CDetour *g_pProcessConnectionlessPacketDetour = nullptr;
@@ -54,7 +58,15 @@ DETOUR_DECL_STATIC6(RecvFromHook, int, int, iSock, char *, pBuf, int, iLen, int,
 	return iRet;
 }
 
-bool PacketIsBlock(list<PacketCount *> &pPacketList, netadr_t &adr, int iTimeoutSec, int iCheckTime, int iMaxPackets) {
+DETOUR_DECL_MEMBER2(ProcessPacketHook, void, netpacket_t *, packet, bool, bHasHeader) {
+	if (memcmp(packet->data+3, NORMAL_SEQ_PACKET, 1)) return;
+	
+	if (IsPacketsFlood(g_GamePacketList, packet->from.GetIP(), GAME_PACKET_TIMEOUT, GAME_PACKET_CHECK_TIME, MAX_GAME_PACKETS_PER_CHECK_TIME)) return;
+	
+	return DETOUR_MEMBER_CALL(ProcessPacketHook)(packet, bHasHeader);
+}
+
+bool IsPacketsFlood(list<PacketCount *> &pPacketList, unsigned int ip, int iTimeoutSec, int iCheckTime, int iMaxPackets) {
 	PacketCount *pPacketCount = nullptr;
 	float fTime = g_pGlobals->realtime;
 	
@@ -65,16 +77,13 @@ bool PacketIsBlock(list<PacketCount *> &pPacketList, netadr_t &adr, int iTimeout
 		if (pPacketCount->fLastTimePacket + iTimeoutSec < fTime) {
 			delete pPacketCount;
 			iter = pPacketList.erase(iter);
-			
+			 
 			continue;
 		}
 		
-		if (pPacketCount->ip == adr.GetIP()) {
-			if (pPacketCount->fLastTimePacket + iCheckTime > fTime) {				
-				if (pPacketCount->iCountPacket >= iMaxPackets) {
-					
-					return true;
-				}
+		if (pPacketCount->ip == ip) {
+			if (pPacketCount->fLastTimePacket + iCheckTime > fTime) {
+				if (pPacketCount->iCountPacket >= iMaxPackets) return true;
 				
 				pPacketCount->fLastTimePacket = fTime;
 				pPacketCount->iCountPacket++;
@@ -89,20 +98,12 @@ bool PacketIsBlock(list<PacketCount *> &pPacketList, netadr_t &adr, int iTimeout
 	}
 	
 	pPacketCount = new PacketCount;
-	pPacketCount->ip = adr.GetIP();
+	pPacketCount->ip = ip;
 	pPacketCount->fLastTimePacket = fTime;
 	pPacketCount->iCountPacket = 1;
 	pPacketList.push_back(pPacketCount);
 	
 	return false;
-}
-
-DETOUR_DECL_MEMBER2(ProcessPacketHook, void, netpacket_t *, packet, bool, bHasHeader) {
-	if (memcmp(packet->data+3, NORMAL_SEQ_PACKET, 1)) return;
-	
-	if (PacketIsBlock(g_GamePacketList, packet->from, 2, 1, 200)) return;
-	
-	return DETOUR_MEMBER_CALL(ProcessPacketHook)(packet, bHasHeader);
 }
 
 void CFilterPacket::Load() {

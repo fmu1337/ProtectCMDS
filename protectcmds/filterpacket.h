@@ -40,6 +40,6 @@ class CFilterPacket : public IFix {
 		void Unload();
 };
 
-//bool PacketIsBlock(std::list<PacketCount *> *pPacket, unsigned int ip, int iTimeoutSec, int iCheckTime, int iMaxPackets);
+bool IsPacketsFlood(std::list<PacketCount *> &pPacketList, unsigned int ip, int iTimeoutSec, int iCheckTime, int iMaxPackets);
 
 #endif
