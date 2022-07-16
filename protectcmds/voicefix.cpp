@@ -1,0 +1,149 @@
+#define MAXPLAYERS 65
+
+#include <iostream>
+
+using namespace std;
+
+#include <CDetour/detours.h>
+#include <helpers/symbolmanager.h>
+
+#include <iclient.h>
+#include <igameevents.h>
+#include <inetmessage.h>
+#include <tier1/bitbuf.h>
+
+#include "voicefix.h"
+
+extern CGlobalVars* g_pGlobals;
+ 
+CDetour *g_pProcessVoiceDataDetour = nullptr;
+CDetour *g_pSendNetMsgDetour = nullptr;
+
+IForward *g_pVoiceForward = nullptr;
+
+class CNetMessage : public INetMessage {};
+
+class CBaseClient : public IGameEventListener2, public IClient {};
+
+class CLC_VoiceData : public CNetMessage {
+public:
+	char offs[12];
+	int m_nLength;
+};
+
+float g_fLastVoice[MAXPLAYERS+1];
+int g_iTickVoice[MAXPLAYERS+1];
+int g_iDetectVoiceExploit[MAXPLAYERS+1];
+int g_iMaxTickVoice = 9;
+int g_iMaxDetectVoiceExploit = 6;
+int g_iMaxDetectVoiceExploitForKick = 30;
+
+float g_fLastTimeBlockVoice[MAXPLAYERS+1];
+
+DETOUR_DECL_MEMBER3(SendNetMsg, bool, INetMessage &, msg, bool, bReliable, char, str) {
+	static char sendMsgBuffer[4000];
+	bf_write bfMsg(sendMsgBuffer, sizeof(sendMsgBuffer));
+	bf_write *pStream = (bf_write *)((uintptr_t)(this) + 68);
+	if (!msg.WriteToBuffer(bfMsg) || pStream->GetNumBitsLeft() < bfMsg.GetNumBitsWritten()) return false;
+	
+	return msg.WriteToBuffer(*pStream);
+	//return DETOUR_MEMBER_CALL(SendNetMsg)(msg, bReliable, str);
+}
+
+DETOUR_DECL_MEMBER1(ProcessVoiceData, bool, CLC_VoiceData *, msg) {
+	CBaseClient *CBClient = reinterpret_cast<CBaseClient*>(this);
+	int iClient = CBClient->GetPlayerSlot() + 1;
+	IGamePlayer *pClient = playerhelpers->GetGamePlayer(iClient);
+	
+	if (!pClient || !pClient->IsConnected()) return false;
+	
+	int iLenMsg = msg->m_nLength >> 3;
+	
+	//if (iLenMsg > 168) {
+	//if (iLenMsg > 200) {
+	if (iLenMsg > 300) {
+		pClient->Kick("[ProtectCMDS] buffer overflow in net message");
+
+		return false;
+	}
+	
+	float fRealTime = g_pGlobals->realtime;
+	
+	if (g_fLastVoice[iClient] > fRealTime) {
+		g_iTickVoice[iClient]++;
+		if (g_iTickVoice[iClient] >= g_iMaxTickVoice) {
+			g_iDetectVoiceExploit[iClient]++;
+			if (g_iDetectVoiceExploit[iClient] > g_iMaxDetectVoiceExploit) 
+				g_fLastTimeBlockVoice[iClient] = fRealTime+2.0;
+			
+			if (g_fLastTimeBlockVoice[iClient] > fRealTime) return false;
+		}
+	}
+	else {
+		g_iTickVoice[iClient] = 1;
+		g_iDetectVoiceExploit[iClient] = 0;
+		g_fLastVoice[iClient] = fRealTime + 0.1;
+	}
+	
+	g_pVoiceForward->PushCell(iClient);
+	
+	cell_t result = Pl_Continue;
+	g_pVoiceForward->Execute(&result);
+
+	if(result >= Pl_Handled) return false;
+	
+	return DETOUR_MEMBER_CALL(ProcessVoiceData)(msg);
+}
+
+void CVoiceFix::Load() {
+	if (!g_pProcessVoiceDataDetour) {
+		/*
+			"CGameClient::ProcessVoiceData"
+			{
+				"library"		"engine"
+				"linux"		"@_ZN11CGameClient16ProcessVoiceDataEP13CLC_VoiceData"
+			}
+		*/
+		void *pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "_ZN11CGameClient16ProcessVoiceDataEP13CLC_VoiceData");
+		g_pProcessVoiceDataDetour = DETOUR_CREATE_MEMBER(ProcessVoiceData, pAddrFunc);
+		if (g_pProcessVoiceDataDetour) g_pProcessVoiceDataDetour->EnableDetour();
+		else g_pSM->LogError(myself, "Failed to setup CGameClient::ProcessVoiceData detour");
+		
+		if (!g_pSendNetMsgDetour) {
+		/*
+			"CNetChan::SendNetMsg"
+			{
+				"library"		"engine"
+				"linux"		"@_ZN8CNetChan10SendNetMsgER11INetMessageb"
+			}
+		*/
+			pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "_ZN8CNetChan10SendNetMsgER11INetMessageb");
+			g_pSendNetMsgDetour = DETOUR_CREATE_MEMBER(SendNetMsg, pAddrFunc);
+			if (g_pSendNetMsgDetour) g_pSendNetMsgDetour->EnableDetour();
+			else g_pSM->LogError(myself, "Failed to setup CNetChan::SendNetMsg detour");
+		}
+	}
+	
+	g_pVoiceForward = forwards->CreateForward("OnClientVoice", ET_Event, 1, nullptr, Param_Cell);
+}
+
+void CVoiceFix::Unload() {
+	if (g_pProcessVoiceDataDetour) {
+		g_pProcessVoiceDataDetour->Destroy();
+		g_pProcessVoiceDataDetour = nullptr;
+	}
+	
+	if (g_pSendNetMsgDetour) {
+		g_pSendNetMsgDetour->Destroy();
+		g_pSendNetMsgDetour = nullptr;
+	}
+	
+	if (g_pVoiceForward) {
+		forwards->ReleaseForward(g_pVoiceForward);
+		g_pVoiceForward = nullptr;
+	}
+}
+
+void CVoiceFix::SetMethod(int iMethod) {
+	m_iMethod = iMethod;
+}
