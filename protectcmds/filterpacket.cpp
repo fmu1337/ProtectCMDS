@@ -14,7 +14,6 @@ using namespace std;
 
 extern CGlobalVars* g_pGlobals;
 #define NORMAL_SEQ_PACKET "\x00"
-#define MAX_GAME_PACKETS_SEC_TIMEOUT 5
 
 CDetour *g_pFilter_ShouldDiscardDetour = nullptr;
 CDetour *g_pProcessConnectionlessPacketDetour = nullptr;
