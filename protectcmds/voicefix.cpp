@@ -49,12 +49,8 @@ DETOUR_DECL_MEMBER1(ProcessVoiceData, bool, CLC_VoiceData *, msg) {
 	
 	if (!pClient || !pClient->IsConnected()) return false;
 	
-	//int iLenMsg = msg->m_nLength >> 3;
 	int iLenMsg = msg->m_nLength >> 3;
-	
-	cout << iLenMsg << endl;
-	
-	//if (iLenMsg > 168) {
+
 	//if (iLenMsg > 200) {
 	if (iLenMsg > 300) {
 		pClient->Kick("[ProtectCMDS] buffer overflow in net message");
