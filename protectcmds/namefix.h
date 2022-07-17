@@ -9,4 +9,6 @@ class CNameFix : public IFix {
 		void Unload();
 };
 
+bool IsFloodNames(int iUserID);
+
 #endif

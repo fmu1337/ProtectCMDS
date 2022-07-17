@@ -31,41 +31,6 @@ struct NameFlood {
 
 list<NameFlood *> g_UserIDList;
 
-bool IsFloodNames(int iUserID) {
-	float fTime = g_pGlobals->realtime;
-	NameFlood *pNameFlood = nullptr;
-	
-	for (auto iter = g_UserIDList.begin(); iter != g_UserIDList.end(); ++iter){
-		pNameFlood = *iter;
-		//Check timed out
-		if (pNameFlood->fLastTime + TIME_OUT < fTime) {
-			delete pNameFlood;
-			iter = g_UserIDList.erase(iter);
-			 
-			continue;
-		}
-		
-		if (pNameFlood->iUserID == iUserID) {
-			if (pNameFlood->fLastTime + CHECK_TIME > fTime) {
-				pNameFlood->fLastTime = fTime;
-				
-				return true;
-			}
-			
-			pNameFlood->fLastTime = fTime;
-			
-			return false;
-		}
-	}
-	
-	pNameFlood = new NameFlood;
-	pNameFlood->iUserID = iUserID;
-	pNameFlood->fLastTime = fTime;
-	g_UserIDList.push_back(pNameFlood);
-	
-	return false;
-}
-
 DETOUR_DECL_MEMBER1(ProcessSetConVarHook, bool, NET_SetConVar *, msg) {
 	KeyValues *pConVars = (KeyValues *)*((uintptr_t *)this + 37);
 
@@ -104,6 +69,41 @@ DETOUR_DECL_MEMBER1(ProcessSetConVarHook, bool, NET_SetConVar *, msg) {
 	}
 	
 	return true;
+}
+
+bool IsFloodNames(int iUserID) {
+	float fTime = g_pGlobals->realtime;
+	NameFlood *pNameFlood = nullptr;
+	
+	for (auto iter = g_UserIDList.begin(); iter != g_UserIDList.end(); ++iter){
+		pNameFlood = *iter;
+		//Check timed out
+		if (pNameFlood->fLastTime + TIME_OUT < fTime) {
+			delete pNameFlood;
+			iter = g_UserIDList.erase(iter);
+			 
+			continue;
+		}
+		
+		if (pNameFlood->iUserID == iUserID) {
+			if (pNameFlood->fLastTime + CHECK_TIME > fTime) {
+				pNameFlood->fLastTime = fTime;
+				
+				return true;
+			}
+			
+			pNameFlood->fLastTime = fTime;
+			
+			return false;
+		}
+	}
+	
+	pNameFlood = new NameFlood;
+	pNameFlood->iUserID = iUserID;
+	pNameFlood->fLastTime = fTime;
+	g_UserIDList.push_back(pNameFlood);
+	
+	return false;
 }
 
 void CNameFix::Load() {
