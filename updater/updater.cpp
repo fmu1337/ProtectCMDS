@@ -68,8 +68,7 @@ string CPCMDSUpdater::GetSHA256FromFile(const char *pFilename) {
 		
 		sReturn = sha256(sBuffer);
 	}
-	
-	if (!pFile) g_pSM->LogError(myself, "Failed to open %s", pFilename);
+	else g_pSM->LogError(myself, "Failed to open %s", pFilename);
 	
 	return sReturn;
 }
