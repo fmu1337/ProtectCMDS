@@ -35,6 +35,7 @@ OBJECTS += protectcmds/voicefix.cpp protectcmds/filterpacket.cpp
 OBJECTS += protectcmds/firegameeventfix.cpp protectcmds/ifix.cpp
 OBJECTS += helpers/symbolmanager.cpp helpers/strtools.cpp helpers/sha256.cpp
 OBJECTS += helpers/inireader.cpp helpers/ini.c
+OBJECTS += updater/updater.cpp updater/http.cpp
 
 ##############################################
 ### CONFIGURE ANY OTHER FLAGS/OPTIONS HERE ###
@@ -248,6 +249,7 @@ all: check
 	mkdir -p $(BIN_DIR)/CDetour
 	mkdir -p $(BIN_DIR)/helpers
 	mkdir -p $(BIN_DIR)/protectcmds
+	mkdir -p $(BIN_DIR)/updater
 	if [ "$(USEMETA)" = "true" ]; then \
 		ln -sf $(HL2LIB)/$(LIB_PREFIX)vstdlib$(LIB_SUFFIX); \
 		ln -sf $(HL2LIB)/$(LIB_PREFIX)tier0$(LIB_SUFFIX); \
@@ -270,10 +272,5 @@ debug:
 default: all
 
 clean: check
-	rm -rf $(BIN_DIR)/*.o
-	rm -rf $(BIN_DIR)/sdk/*.o
-	rm -rf $(BIN_DIR)/CDetour/*.o
-	rm -rf $(BIN_DIR)/helpers/*.o
-	rm -rf $(BIN_DIR)/protectcmds/*.o
-	rm -rf $(BIN_DIR)/$(BINARY)
+	rm -rf $(BIN_DIR)
 

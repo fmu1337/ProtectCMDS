@@ -126,6 +126,25 @@ bool CProtectCMDS::SDK_OnLoad(char* error, size_t maxlength, bool late) {
 	
 	CDetourManager::Init(g_pSM->GetScriptingEngine(), nullptr);
 	
+	IExtension *pExtensionManager = nullptr;
+	SM_GET_IFACE(EXTENSIONMANAGER, pExtensionManager);
+	
+	if (!pExtensionManager) {
+		g_pSM->Format(error, maxlength, "[ProtectCMDS] Could not interface IExtensionManager");
+		
+		return false;
+	}
+	
+	if (g_pSettings->GetInteger("Updater", "protectcmds_updater_enable", 0)) {
+		m_pUpdater = new CPCMDSUpdater;
+		if (m_pUpdater){
+			m_pUpdater->SetUrl(g_pSettings->GetString("Updater", "protectcmds_updater_url", "0"));
+			m_pUpdater->SetExperimental(g_pSettings->GetInteger("Updater", "protectcmds_updater_experimental", 0));
+			m_pUpdater->Load((void *)pExtensionManager);
+		}
+		else g_pSM->LogError(myself, "Updater failed to load!");
+	}
+	
 	if (g_pSettings->GetInteger("FilterPacket", "filterpacket_enable", 1)) {
 		m_pFilterPacket = new CFilterPacket;
 		if (m_pFilterPacket) m_pFilterPacket->Load();

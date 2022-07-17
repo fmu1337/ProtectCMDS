@@ -57,6 +57,10 @@
 #include "protectcmds/filterpacket.h"
 #include "protectcmds/firegameeventfix.h"
 
+#include "updater/updater.h"
+
+class CPCMDSUpdater;
+
 class CProtectCMDS : public IProtectCMDS, public SDKExtension
 {
 public:
@@ -139,6 +143,7 @@ public: // IPluginsListener
 	//virtual void OnPluginLoaded(IPlugin *plugin);
 	//virtual void OnPluginUnloaded(IPlugin *plugin);
 private:
+	CPCMDSUpdater *m_pUpdater					=	nullptr;
 	CFilterPacket *m_pFilterPacket 				= 	nullptr;	
 	CBlockLoadPluginFix *m_pBlockLoadPluginFix 	= 	nullptr;
 	CBlockCmds *m_pBlockCmds 					= 	nullptr;
