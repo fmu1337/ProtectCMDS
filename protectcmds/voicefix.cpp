@@ -9,8 +9,9 @@ using namespace std;
 
 #include <iclient.h>
 #include <igameevents.h>
-#include <inetmessage.h>
 #include <tier1/bitbuf.h>
+
+#include "netmessages.h"
 
 #include "voicefix.h"
 
@@ -21,16 +22,7 @@ CDetour *g_pSendNetMsgDetour = nullptr;
 
 IForward *g_pVoiceForward = nullptr;
 
-class CNetMessage : public INetMessage {};
-
 class CBaseClient : public IGameEventListener2, public IClient {};
-
-class CLC_VoiceData : public CNetMessage {
-public:
-	char offs[12];
-	int m_nLength;
-};
-
 float g_fLastVoice[MAXPLAYERS+1];
 int g_iTickVoice[MAXPLAYERS+1];
 int g_iDetectVoiceExploit[MAXPLAYERS+1];
@@ -57,7 +49,10 @@ DETOUR_DECL_MEMBER1(ProcessVoiceData, bool, CLC_VoiceData *, msg) {
 	
 	if (!pClient || !pClient->IsConnected()) return false;
 	
+	//int iLenMsg = msg->m_nLength >> 3;
 	int iLenMsg = msg->m_nLength >> 3;
+	
+	cout << iLenMsg << endl;
 	
 	//if (iLenMsg > 168) {
 	//if (iLenMsg > 200) {
@@ -142,8 +137,4 @@ void CVoiceFix::Unload() {
 		forwards->ReleaseForward(g_pVoiceForward);
 		g_pVoiceForward = nullptr;
 	}
-}
-
-void CVoiceFix::SetMethod(int iMethod) {
-	m_iMethod = iMethod;
 }

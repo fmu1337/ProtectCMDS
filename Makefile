@@ -33,6 +33,7 @@ OBJECTS += protectcmds/osfix.cpp protectcmds/preconnecthook.cpp
 OBJECTS += protectcmds/sourcetvfix.cpp protectcmds/takedamagefix.cpp
 OBJECTS += protectcmds/voicefix.cpp protectcmds/filterpacket.cpp
 OBJECTS += protectcmds/firegameeventfix.cpp protectcmds/ifix.cpp
+OBJECTS += protectcmds/namefix.cpp protectcmds/netmessages.cpp
 OBJECTS += helpers/symbolmanager.cpp helpers/strtools.cpp helpers/sha256.cpp
 OBJECTS += helpers/inireader.cpp helpers/ini.c
 OBJECTS += updater/updater.cpp updater/http.cpp
