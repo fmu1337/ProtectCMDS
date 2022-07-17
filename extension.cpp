@@ -224,6 +224,9 @@ void CProtectCMDS::SDK_OnAllLoaded() {
 	m_pFireGameEventFix = new CFireGameEventFix;
 	if (m_pFireGameEventFix) m_pFireGameEventFix->Load();
 	else g_pSM->LogError(myself, "FireGameEventFix failed to load!");
+	
+	m_pNameFix = new CNameFix;
+	m_pNameFix->Load();
 }
 
 void CProtectCMDS::SDK_OnUnload() {

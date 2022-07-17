@@ -56,6 +56,7 @@
 #include "protectcmds/observerloopfix.h"
 #include "protectcmds/filterpacket.h"
 #include "protectcmds/firegameeventfix.h"
+#include "protectcmds/namefix.h"
 
 #include "updater/updater.h"
 
@@ -143,6 +144,7 @@ public: // IPluginsListener
 	//virtual void OnPluginLoaded(IPlugin *plugin);
 	//virtual void OnPluginUnloaded(IPlugin *plugin);
 private:
+	CNameFix *m_pNameFix						=	nullptr;
 	CPCMDSUpdater *m_pUpdater					=	nullptr;
 	CFilterPacket *m_pFilterPacket 				= 	nullptr;	
 	CBlockLoadPluginFix *m_pBlockLoadPluginFix 	= 	nullptr;
