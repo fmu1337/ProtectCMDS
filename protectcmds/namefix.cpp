@@ -7,15 +7,18 @@
 #include <igameevents.h>
 #include <iclient.h>
 #include <tier1/KeyValues.h>
+#include <iplayerinfo.h>
+
 #include <iostream>
 
-#define TIME_OUT 60
-#define CHECK_TIME 30
+#define TIME_OUT 120
+#define CHECK_TIME 90
 
 using namespace std;
 
 extern char g_cPrefix[];
 extern CGlobalVars* g_pGlobals;
+extern IPlayerInfoManager* g_pPlayerInfoManager;
 
 class CBaseClient : public IGameEventListener2, public IClient {};
 
@@ -44,12 +47,12 @@ bool IsFloodNames(int iUserID) {
 		
 		if (pNameFlood->iUserID == iUserID) {
 			if (pNameFlood->fLastTime + CHECK_TIME > fTime) {
-				//if (pPacketCount->iCountPacket >= iMaxPackets) return true;
+				pNameFlood->fLastTime = fTime;
+				
 				return true;
 			}
-			else {
-				pNameFlood->fLastTime = fTime;
-			}
+			
+			pNameFlood->fLastTime = fTime;
 			
 			return false;
 		}
@@ -64,53 +67,43 @@ bool IsFloodNames(int iUserID) {
 }
 
 DETOUR_DECL_MEMBER1(ProcessSetConVarHook, bool, NET_SetConVar *, msg) {
-	/*for ( int i=0; i<msg->m_ConVars.Count(); i++ ) {
-		bool bAdd = true;
-		
+	KeyValues *pConVars = (KeyValues *)*((uintptr_t *)this + 37);
+
+	char szOldName[64];
+	strncpy(szOldName, (char *)pConVars->GetString("name"), sizeof(szOldName));
+	
+	for ( int i=0; i<msg->m_ConVars.Count(); i++ ) {
 		const char *name = msg->m_ConVars[i].name;
 		const char *value = msg->m_ConVars[i].value;
-		
-		if (!strcmp(name, "name")) {
-			CBaseClient *pBaseClient = reinterpret_cast<CBaseClient *>(this);
-			int iUserID = pBaseClient->GetUserID();
-			if (IsFloodNames(iUserID)) bAdd = false;
-		}
-		
-		if (!bAdd) continue;
-		
-		KeyValues *pConVars = (KeyValues *)*((uintptr_t *)this + 37);
 		pConVars->SetString(name, value);
 	}
 	
 	bool *pBConVarsChanged = (bool *)((uintptr_t)this + 152);
-		
 	*pBConVarsChanged = 1;
-	
-	return true;	
-	//return DETOUR_MEMBER_CALL(ProcessSetConVarHook)(msg);*/
-	
-	KeyValues *pConVars = (KeyValues *)*((uintptr_t *)this + 37);
-	
-	char* pName;
-	char szOldName[64];
-	pName = (char *)pConVars->GetString("name");
-	strncpy(szOldName, pName, sizeof(szOldName));
-	
-	bool bRet = DETOUR_MEMBER_CALL(ProcessSetConVarHook)(msg);
-	
-	pName = (char *)pConVars->GetString("name");
-	
-	if(strcmp(szOldName, pName) != 0)
-	{
+
+	if(strcmp(szOldName, pConVars->GetString("name")) != 0) {
 		CBaseClient *pBaseClient = reinterpret_cast<CBaseClient *>(this);
+		
 		int iUserID = pBaseClient->GetUserID();
-		if (IsFloodNames(iUserID))
-		{
+		
+		if (IsFloodNames(iUserID)) {
+			pBaseClient->ClientPrintf("%s name change not allowed (block by time)\n", g_cPrefix);
+			pConVars->SetString("name", szOldName);
+			
+			return true;
+		}
+		
+		IPlayerInfo *pInfoPlayer = g_pPlayerInfoManager->GetPlayerInfo(gamehelpers->EdictOfIndex(pBaseClient->GetPlayerSlot()+1));
+		
+		if (!pInfoPlayer) return true;
+		
+		if (pInfoPlayer->IsDead()) {
+			pBaseClient->ClientPrintf("%s name change not allowed (dead)\n", g_cPrefix);
 			pConVars->SetString("name", szOldName);
 		}
 	}
 	
-	return bRet;
+	return true;
 }
 
 void CNameFix::Load() {

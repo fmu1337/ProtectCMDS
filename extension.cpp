@@ -39,13 +39,14 @@ EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CProtectCMDS, IProtectCMDS, INTERFACE_PROTECTC
 
 char g_cPrefix[] = "[ProtectCMDS]";
 
-CGlobalVars* g_pGlobals = nullptr;
-
 using namespace std;
 using std::string;
 
 #include <tier1/interface.h>
 #include <dlls/iplayerinfo.h>
+
+IPlayerInfoManager* g_pPlayerInfoManager = nullptr;
+CGlobalVars* g_pGlobals = nullptr;
 
 #include "helpers/symbolmanager.h"
 #include "helpers/inireader.h"
@@ -86,15 +87,14 @@ bool CProtectCMDS::LoadLibraries() {
 	if (!g_pSymbolManager->AddModule(ESymbolModule::ENGINE, sEngine)) return false;
 	if (!g_pSymbolManager->AddModule(ESymbolModule::SERVER, "cstrike/bin/server_i486.so")) return false;
 	
-	IPlayerInfoManager* pPlayerInfoManager = nullptr;
-	Sys_LoadInterface("cstrike/bin/server_i486.so", INTERFACEVERSION_PLAYERINFOMANAGER, nullptr, (void**)&pPlayerInfoManager);
-	if (!pPlayerInfoManager) {
+	Sys_LoadInterface("cstrike/bin/server_i486.so", INTERFACEVERSION_PLAYERINFOMANAGER, nullptr, (void**)&g_pPlayerInfoManager);
+	if (!g_pPlayerInfoManager) {
 		g_pSM->LogError(myself, "Сould not find interface: %s", INTERFACEVERSION_PLAYERINFOMANAGER);
 		
 		return false;
 	}
 	
-	g_pGlobals = pPlayerInfoManager->GetGlobalVars();
+	g_pGlobals = g_pPlayerInfoManager->GetGlobalVars();
 	
 	return true;
 }
