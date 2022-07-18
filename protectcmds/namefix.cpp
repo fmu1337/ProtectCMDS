@@ -72,7 +72,7 @@ DETOUR_DECL_MEMBER1(ProcessSetConVarHook, bool, NET_SetConVar *, msg) {
 }
 
 bool IsFloodNames(int iUserID) {
-	float fTime = g_pGlobals->realtime;
+	float fTime = g_pGlobals->curtime;
 	NameFlood *pNameFlood = nullptr;
 	
 	for (auto iter = g_UserIDList.begin(); iter != g_UserIDList.end(); ++iter){

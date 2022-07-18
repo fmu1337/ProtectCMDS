@@ -86,6 +86,8 @@ public:
 	 */
 	virtual void SDK_OnAllLoaded();
 	
+	virtual void OnCoreMapStart(edict_t *pEdictList, int edictCount, int clientMax);
+	
 	bool LoadSettings();
 	
 	bool LoadLibraries();

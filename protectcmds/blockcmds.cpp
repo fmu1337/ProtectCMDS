@@ -15,7 +15,6 @@
 #include "blockcmds.h"
 
 using namespace std;
-using std::string;
 
 class CBaseClient : public IGameEventListener2, public IClient {};
 
@@ -39,9 +38,9 @@ DETOUR_DECL_MEMBER1(ExecuteStringCommand, bool, const char *, pCommand) {
 	
 	if (strlen(pCommand) > 1023) return false;
 	
-	float fRealTime = g_pGlobals->realtime;
+	float fTime = g_pGlobals->curtime;
 	
-	if (g_fLastUserCmds[iClient] > fRealTime) {
+	if (g_fLastUserCmds[iClient] > fTime) {
 		g_iUserCmds[iClient]++;
 		if (g_iUserCmds[iClient] > g_iMaxUserCmds) {
 			ConMsg(0, "%s %s has been kicked by spamming (max: %d)\n", g_cPrefix, pClient->GetName(), g_iMaxUserCmds);
@@ -52,7 +51,7 @@ DETOUR_DECL_MEMBER1(ExecuteStringCommand, bool, const char *, pCommand) {
 	}
 	else {
 		g_iUserCmds[iClient] = 1;
-		g_fLastUserCmds[iClient] = fRealTime+1.0;
+		g_fLastUserCmds[iClient] = fTime + 1.0;
 	}
 	
 	char pCmd[1024];
@@ -67,6 +66,10 @@ DETOUR_DECL_MEMBER1(ExecuteStringCommand, bool, const char *, pCommand) {
 	}
 	
 	return DETOUR_MEMBER_CALL(ExecuteStringCommand)(pCommand);
+}
+
+void CBlockCmds::OnMapStart() {
+	for (int i = 0; i < MAXPLAYERS+1; i++) g_fLastUserCmds[i] = g_pGlobals->curtime;
 }
 
 bool CBlockCmds::IsCommandBlock(char *pCmd) {

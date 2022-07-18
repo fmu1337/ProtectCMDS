@@ -7,6 +7,9 @@ class CVoiceFix : public IFix {
 	public:
 		void Load();
 		void Unload();
+		
+	public:
+		virtual void OnMapStart() override;
 };
 
 #endif

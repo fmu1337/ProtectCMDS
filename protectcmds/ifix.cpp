@@ -13,3 +13,5 @@ char *IFix::GetName() {
 void IFix::SetName(const char *pName) {
 	strncpy(m_sName, pName, strlen(pName));
 }
+
+void IFix::OnMapStart() {}

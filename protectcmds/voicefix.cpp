@@ -1,9 +1,5 @@
 #define MAXPLAYERS 65
 
-#include <iostream>
-
-using namespace std;
-
 #include <CDetour/detours.h>
 #include <helpers/symbolmanager.h>
 
@@ -58,22 +54,22 @@ DETOUR_DECL_MEMBER1(ProcessVoiceData, bool, CLC_VoiceData *, msg) {
 		return false;
 	}
 	
-	float fRealTime = g_pGlobals->realtime;
+	float fTime = g_pGlobals->curtime;
 	
-	if (g_fLastVoice[iClient] > fRealTime) {
+	if (g_fLastVoice[iClient] > fTime) {
 		g_iTickVoice[iClient]++;
 		if (g_iTickVoice[iClient] >= g_iMaxTickVoice) {
 			g_iDetectVoiceExploit[iClient]++;
 			if (g_iDetectVoiceExploit[iClient] > g_iMaxDetectVoiceExploit) 
-				g_fLastTimeBlockVoice[iClient] = fRealTime+2.0;
+				g_fLastTimeBlockVoice[iClient] = fTime+2.0;
 			
-			if (g_fLastTimeBlockVoice[iClient] > fRealTime) return false;
+			if (g_fLastTimeBlockVoice[iClient] > fTime) return false;
 		}
 	}
 	else {
 		g_iTickVoice[iClient] = 1;
 		g_iDetectVoiceExploit[iClient] = 0;
-		g_fLastVoice[iClient] = fRealTime + 0.1;
+		g_fLastVoice[iClient] = fTime + 0.1;
 	}
 	
 	g_pVoiceForward->PushCell(iClient);
@@ -84,6 +80,10 @@ DETOUR_DECL_MEMBER1(ProcessVoiceData, bool, CLC_VoiceData *, msg) {
 	if(result >= Pl_Handled) return false;
 	
 	return DETOUR_MEMBER_CALL(ProcessVoiceData)(msg);
+}
+
+void CVoiceFix::OnMapStart() {
+	for (int i = 0; i < MAXPLAYERS+1; i++) g_fLastVoice[i] = g_pGlobals->curtime;
 }
 
 void CVoiceFix::Load() {

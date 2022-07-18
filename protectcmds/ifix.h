@@ -15,6 +15,9 @@ class IFix {
 		void SetName(const char *pName);
 		
 	public:
+		virtual void OnMapStart();
+		
+	public:
 		char m_sName[255];
 };
 

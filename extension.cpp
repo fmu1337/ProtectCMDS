@@ -120,6 +120,11 @@ bool CProtectCMDS::LoadSettings() {
 	return true;
 }
 
+void CProtectCMDS::OnCoreMapStart(edict_t *pEdictList, int edictCount, int clientMax) {
+	if (m_pBlockCmds)((IFix *)m_pBlockCmds)->OnMapStart();
+	if (m_pVoiceFix) m_pVoiceFix->OnMapStart();
+}
+
 bool CProtectCMDS::SDK_OnLoad(char* error, size_t maxlength, bool late) {
 	if (!LoadLibraries()) return false;
 	if (!LoadSettings()) return false;
