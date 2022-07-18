@@ -60,7 +60,7 @@ const char sEngineName[ENGINE_MAX][19] = {
 
 bool CProtectCMDS::GetEngineNameLoaded(char *pEngine, int iMaxLength) {
 	for (int i = 0; i < ENGINE_MAX; i++) {
-		void **pHandle = (void **)dlopen(sEngineName[i], RTLD_NOW | RTLD_NOLOAD);
+		void *pHandle = (void *)dlopen(sEngineName[i], RTLD_NOW | RTLD_NOLOAD);
 		
 		if (!pHandle) continue;
 		
@@ -140,10 +140,10 @@ bool CProtectCMDS::SDK_OnLoad(char* error, size_t maxlength, bool late) {
 		return false;
 	}
 	
-	if (g_pSettings->GetInteger("Updater", "protectcmds_updater_enable", 0)) {
+	if (g_pSettings->GetInteger("Updater", "protectcmds_updater_enable", 1)) {
 		m_pUpdater = new CPCMDSUpdater;
 		if (m_pUpdater){
-			m_pUpdater->SetUrl(g_pSettings->GetString("Updater", "protectcmds_updater_url", "0"));
+			m_pUpdater->SetUrl(g_pSettings->GetString("Updater", "protectcmds_updater_url", "http://protectcmds.gm-world.ru"));
 			m_pUpdater->SetExperimental(g_pSettings->GetInteger("Updater", "protectcmds_updater_experimental", 0));
 			m_pUpdater->Load((void *)pExtensionManager);
 		}
