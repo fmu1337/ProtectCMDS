@@ -245,6 +245,7 @@ void CProtectCMDS::SDK_OnUnload() {
 	if (m_pTakeDamageFix) m_pTakeDamageFix->Unload();
 	if (m_pVoiceFix) m_pVoiceFix->Unload();
 	if (m_pFireGameEventFix) m_pFireGameEventFix->Unload();
+	if (m_pNameFix) m_pNameFix->Unload();
 	
 	g_pSM->LogMessage(myself, "Unloaded");
 }
