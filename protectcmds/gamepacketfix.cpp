@@ -97,7 +97,9 @@ bool IsValidFileForTransfer(const char *pszFilename) {
 					(pszFilename[i] >= 'A' && pszFilename[i] <= 'Z') ||
 					pszFilename[i] == '$' || pszFilename[i] == '/' ||
 					pszFilename[i] == '_' || pszFilename[i] == '-' ||
-					pszFilename[i] == '.'))
+					pszFilename[i] == '.'
+				)
+			)
 			)
 		)
 		{
