@@ -121,7 +121,7 @@ bool CProtectCMDS::LoadSettings() {
 }
 
 void CProtectCMDS::OnCoreMapStart(edict_t *pEdictList, int edictCount, int clientMax) {
-	if (m_pBlockCmds)((IFix *)m_pBlockCmds)->OnMapStart();
+	if (m_pBlockCmds) m_pBlockCmds->OnMapStart();
 	if (m_pVoiceFix) m_pVoiceFix->OnMapStart();
 }
 

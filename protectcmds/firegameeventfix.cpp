@@ -12,10 +12,8 @@ CDetour *g_pFireGameEventDetour = nullptr;
 
 DETOUR_DECL_MEMBER1(FireGameEvent, void, IGameEvent *, pEvent) {
 	INetChannel *pNetChannel = (INetChannel *)*((uintptr_t *)this + 51);
-	if (!pNetChannel) {
-		ConMsg(0, "%s prevented server crash with CBaseClient::FireGameEvent nullptr m_NetChannel\n", g_cPrefix);
-		return;
-	}
+	
+	if (!pNetChannel) return;
 	
 	return DETOUR_MEMBER_CALL(FireGameEvent)(pEvent);
 }
