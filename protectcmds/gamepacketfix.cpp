@@ -26,15 +26,19 @@ class CNetChan : public INetMessage {};
  
 CDetour *g_pProcessMessagesDetour = nullptr;
 
-char WhitePath[5][11] = {
+#define WHITE_PATH_MAX 5
+
+char WhitePath[WHITE_PATH_MAX][11] = {
 	"downloads/",	"maps/", "sound/",
 	"models/", "materials/"
 };
 
-char WhiteExt[11][4] = {
+#define WHITE_EXT_MAX 12
+
+char WhiteExt[WHITE_EXT_MAX][4] = {
 	"dat",	"bsp", "nav", "txt",
 	"vmt", "vtx", "phy", "mdl",
-	"vvd", "wav", "mp3"
+	"vvd", "wav", "mp3", "vtf"
 };
 
 /*Start Function Pointer*/
@@ -56,7 +60,7 @@ bool IsValidFileForTransfer(const char *pszFilename) {
 	bool bDownloadPath = false;
 	int iOffsetPath = -1;
 	
-	for (int i = 0; i < (int)sizeof(WhitePath); i++)
+	for (int i = 0; i < WHITE_PATH_MAX; i++)
 		if (StrContains(pszFilename, WhitePath[i]) == 0) {
 			bValid = true;
 			iOffsetPath = strlen(WhitePath[i]);
@@ -72,7 +76,7 @@ bool IsValidFileForTransfer(const char *pszFilename) {
 	int iLenExt = iLen - 3;
 	
 	bValid = false;
-	for (int i = 0; i < (int)sizeof(WhiteExt); i++)
+	for (int i = 0; i < WHITE_EXT_MAX; i++)
 		if (StrContains(pszFilename, WhiteExt[i]) == iLenExt) {
 			if (bDownloadPath && strcmp(WhiteExt[i], "dat")) break;
 			
@@ -89,7 +93,7 @@ bool IsValidFileForTransfer(const char *pszFilename) {
 			(pszFilename[i] >= 'a' && pszFilename[i] <= 'z') ||
 			(pszFilename[i] >= '0' && pszFilename[i] <= '9') ||
 			(!bDownloadPath &&
-				((pszFilename[i] >= 'A' && pszFilename[i] <= 'Z') || pszFilename[i] == '$' || pszFilename[i] == '/' || pszFilename[i] == '_' || pszFilename[i] == '-'))
+				((pszFilename[i] >= 'A' && pszFilename[i] <= 'Z') || pszFilename[i] == '$' || pszFilename[i] == '/' || pszFilename[i] == '_' || pszFilename[i] == '-' || pszFilename[i] == '.'))
 			)
 		)
 		{
