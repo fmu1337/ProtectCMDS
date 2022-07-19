@@ -93,7 +93,11 @@ bool IsValidFileForTransfer(const char *pszFilename) {
 			(pszFilename[i] >= 'a' && pszFilename[i] <= 'z') ||
 			(pszFilename[i] >= '0' && pszFilename[i] <= '9') ||
 			(!bDownloadPath &&
-				((pszFilename[i] >= 'A' && pszFilename[i] <= 'Z') || pszFilename[i] == '$' || pszFilename[i] == '/' || pszFilename[i] == '_' || pszFilename[i] == '-' || pszFilename[i] == '.'))
+				(
+					(pszFilename[i] >= 'A' && pszFilename[i] <= 'Z') ||
+					pszFilename[i] == '$' || pszFilename[i] == '/' ||
+					pszFilename[i] == '_' || pszFilename[i] == '-' ||
+					pszFilename[i] == '.'))
 			)
 		)
 		{
