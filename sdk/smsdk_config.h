@@ -40,7 +40,7 @@
 /* Basic information exposed publicly */
 #define SMEXT_CONF_NAME			"ProtectCMDS [CS:S v34]"
 #define SMEXT_CONF_DESCRIPTION	"Exploit protection"
-#define SMEXT_CONF_VERSION		"1.0.7 experimental"
+#define SMEXT_CONF_VERSION		"1.0.7"
 #define SMEXT_CONF_AUTHOR		"WeSTMan"
 #define SMEXT_CONF_URL			"https://vk.com/id55942612"
 #define SMEXT_CONF_LOGTAG		"ProtectCMDS"
