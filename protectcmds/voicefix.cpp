@@ -1,16 +1,13 @@
 #define MAXPLAYERS 65
 
-#include <iostream>
-
-using namespace std;
-
 #include <CDetour/detours.h>
 #include <helpers/symbolmanager.h>
 
 #include <iclient.h>
 #include <igameevents.h>
-#include <inetmessage.h>
 #include <tier1/bitbuf.h>
+
+#include "netmessages.h"
 
 #include "voicefix.h"
 
@@ -21,16 +18,7 @@ CDetour *g_pSendNetMsgDetour = nullptr;
 
 IForward *g_pVoiceForward = nullptr;
 
-class CNetMessage : public INetMessage {};
-
 class CBaseClient : public IGameEventListener2, public IClient {};
-
-class CLC_VoiceData : public CNetMessage {
-public:
-	char offs[12];
-	int m_nLength;
-};
-
 float g_fLastVoice[MAXPLAYERS+1];
 int g_iTickVoice[MAXPLAYERS+1];
 int g_iDetectVoiceExploit[MAXPLAYERS+1];
@@ -58,8 +46,7 @@ DETOUR_DECL_MEMBER1(ProcessVoiceData, bool, CLC_VoiceData *, msg) {
 	if (!pClient || !pClient->IsConnected()) return false;
 	
 	int iLenMsg = msg->m_nLength >> 3;
-	
-	//if (iLenMsg > 168) {
+
 	//if (iLenMsg > 200) {
 	if (iLenMsg > 300) {
 		pClient->Kick("[ProtectCMDS] buffer overflow in net message");
@@ -67,22 +54,22 @@ DETOUR_DECL_MEMBER1(ProcessVoiceData, bool, CLC_VoiceData *, msg) {
 		return false;
 	}
 	
-	float fRealTime = g_pGlobals->realtime;
+	float fTime = g_pGlobals->curtime;
 	
-	if (g_fLastVoice[iClient] > fRealTime) {
+	if (g_fLastVoice[iClient] > fTime) {
 		g_iTickVoice[iClient]++;
 		if (g_iTickVoice[iClient] >= g_iMaxTickVoice) {
 			g_iDetectVoiceExploit[iClient]++;
 			if (g_iDetectVoiceExploit[iClient] > g_iMaxDetectVoiceExploit) 
-				g_fLastTimeBlockVoice[iClient] = fRealTime+2.0;
+				g_fLastTimeBlockVoice[iClient] = fTime+2.0;
 			
-			if (g_fLastTimeBlockVoice[iClient] > fRealTime) return false;
+			if (g_fLastTimeBlockVoice[iClient] > fTime) return false;
 		}
 	}
 	else {
 		g_iTickVoice[iClient] = 1;
 		g_iDetectVoiceExploit[iClient] = 0;
-		g_fLastVoice[iClient] = fRealTime + 0.1;
+		g_fLastVoice[iClient] = fTime + 0.1;
 	}
 	
 	g_pVoiceForward->PushCell(iClient);
@@ -93,6 +80,10 @@ DETOUR_DECL_MEMBER1(ProcessVoiceData, bool, CLC_VoiceData *, msg) {
 	if(result >= Pl_Handled) return false;
 	
 	return DETOUR_MEMBER_CALL(ProcessVoiceData)(msg);
+}
+
+void CVoiceFix::OnMapStart() {
+	for (int i = 0; i < MAXPLAYERS+1; i++) g_fLastVoice[i] = g_pGlobals->curtime;
 }
 
 void CVoiceFix::Load() {
@@ -142,8 +133,4 @@ void CVoiceFix::Unload() {
 		forwards->ReleaseForward(g_pVoiceForward);
 		g_pVoiceForward = nullptr;
 	}
-}
-
-void CVoiceFix::SetMethod(int iMethod) {
-	m_iMethod = iMethod;
 }

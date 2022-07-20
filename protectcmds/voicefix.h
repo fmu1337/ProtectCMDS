@@ -8,10 +8,8 @@ class CVoiceFix : public IFix {
 		void Load();
 		void Unload();
 		
-		void SetMethod(int iMethod);
-		
-	private:
-		int m_iMethod = 3;
+	public:
+		virtual void OnMapStart() override;
 };
 
 #endif

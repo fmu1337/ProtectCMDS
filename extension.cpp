@@ -39,13 +39,14 @@ EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CProtectCMDS, IProtectCMDS, INTERFACE_PROTECTC
 
 char g_cPrefix[] = "[ProtectCMDS]";
 
-CGlobalVars* g_pGlobals = nullptr;
-
 using namespace std;
 using std::string;
 
 #include <tier1/interface.h>
 #include <dlls/iplayerinfo.h>
+
+IPlayerInfoManager* g_pPlayerInfoManager = nullptr;
+CGlobalVars* g_pGlobals = nullptr;
 
 #include "helpers/symbolmanager.h"
 #include "helpers/inireader.h"
@@ -59,7 +60,7 @@ const char sEngineName[ENGINE_MAX][19] = {
 
 bool CProtectCMDS::GetEngineNameLoaded(char *pEngine, int iMaxLength) {
 	for (int i = 0; i < ENGINE_MAX; i++) {
-		void **pHandle = (void **)dlopen(sEngineName[i], RTLD_NOW | RTLD_NOLOAD);
+		void *pHandle = (void *)dlopen(sEngineName[i], RTLD_NOW | RTLD_NOLOAD);
 		
 		if (!pHandle) continue;
 		
@@ -86,15 +87,14 @@ bool CProtectCMDS::LoadLibraries() {
 	if (!g_pSymbolManager->AddModule(ESymbolModule::ENGINE, sEngine)) return false;
 	if (!g_pSymbolManager->AddModule(ESymbolModule::SERVER, "cstrike/bin/server_i486.so")) return false;
 	
-	IPlayerInfoManager* pPlayerInfoManager = nullptr;
-	Sys_LoadInterface("cstrike/bin/server_i486.so", INTERFACEVERSION_PLAYERINFOMANAGER, nullptr, (void**)&pPlayerInfoManager);
-	if (!pPlayerInfoManager) {
+	Sys_LoadInterface("cstrike/bin/server_i486.so", INTERFACEVERSION_PLAYERINFOMANAGER, nullptr, (void**)&g_pPlayerInfoManager);
+	if (!g_pPlayerInfoManager) {
 		g_pSM->LogError(myself, "Сould not find interface: %s", INTERFACEVERSION_PLAYERINFOMANAGER);
 		
 		return false;
 	}
 	
-	g_pGlobals = pPlayerInfoManager->GetGlobalVars();
+	g_pGlobals = g_pPlayerInfoManager->GetGlobalVars();
 	
 	return true;
 }
@@ -120,11 +120,35 @@ bool CProtectCMDS::LoadSettings() {
 	return true;
 }
 
+void CProtectCMDS::OnCoreMapStart(edict_t *pEdictList, int edictCount, int clientMax) {
+	if (m_pBlockCmds) m_pBlockCmds->OnMapStart();
+	if (m_pVoiceFix) m_pVoiceFix->OnMapStart();
+}
+
 bool CProtectCMDS::SDK_OnLoad(char* error, size_t maxlength, bool late) {
 	if (!LoadLibraries()) return false;
 	if (!LoadSettings()) return false;
 	
 	CDetourManager::Init(g_pSM->GetScriptingEngine(), nullptr);
+	
+	IExtension *pExtensionManager = nullptr;
+	SM_GET_IFACE(EXTENSIONMANAGER, pExtensionManager);
+	
+	if (!pExtensionManager) {
+		g_pSM->Format(error, maxlength, "[ProtectCMDS] Could not interface IExtensionManager");
+		
+		return false;
+	}
+	
+	if (g_pSettings->GetInteger("Updater", "protectcmds_updater_enable", 1)) {
+		m_pUpdater = new CPCMDSUpdater;
+		if (m_pUpdater) {
+			m_pUpdater->SetUrl(g_pSettings->GetString("Updater", "protectcmds_updater_url", "http://protectcmds.gm-world.ru"));
+			m_pUpdater->SetExperimental(g_pSettings->GetInteger("Updater", "protectcmds_updater_experimental", 0));
+			m_pUpdater->Load((void *)pExtensionManager);
+		}
+		else g_pSM->LogError(myself, "Updater failed to load!");
+	}
 	
 	if (g_pSettings->GetInteger("FilterPacket", "filterpacket_enable", 1)) {
 		m_pFilterPacket = new CFilterPacket;
@@ -205,6 +229,10 @@ void CProtectCMDS::SDK_OnAllLoaded() {
 	m_pFireGameEventFix = new CFireGameEventFix;
 	if (m_pFireGameEventFix) m_pFireGameEventFix->Load();
 	else g_pSM->LogError(myself, "FireGameEventFix failed to load!");
+	
+	m_pNameFix = new CNameFix;
+	if (m_pNameFix) m_pNameFix->Load();
+	else g_pSM->LogError(myself, "NameFix failed to load!");
 }
 
 void CProtectCMDS::SDK_OnUnload() {
@@ -223,6 +251,24 @@ void CProtectCMDS::SDK_OnUnload() {
 	if (m_pTakeDamageFix) m_pTakeDamageFix->Unload();
 	if (m_pVoiceFix) m_pVoiceFix->Unload();
 	if (m_pFireGameEventFix) m_pFireGameEventFix->Unload();
+	if (m_pNameFix) m_pNameFix->Unload();
+	
+	if (m_pUpdater) {
+		m_pUpdater->Unload();
+		
+		delete m_pUpdater;
+		m_pUpdater = nullptr;
+	}
+	
+	if (g_pSymbolManager) {
+		delete g_pSymbolManager;
+		g_pSymbolManager = nullptr;
+	}
+	
+	if (g_pSettings) {
+		delete g_pSettings;
+		g_pSettings = nullptr;
+	}
 	
 	g_pSM->LogMessage(myself, "Unloaded");
 }

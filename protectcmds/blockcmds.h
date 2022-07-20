@@ -17,6 +17,9 @@ class CBlockCmds : public IFix {
 		
 		static bool IsCommandBlock(char *pCmd);
 		
+	public:
+		virtual void OnMapStart() override;
+		
 	private:
 		void LoadBlockListCmds();
 };

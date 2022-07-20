@@ -1,9 +1,10 @@
 #include <CDetour/detours.h>
 #include <helpers/symbolmanager.h>
 
-#include "inetmessage.h"
+#include "netmessages.h"
 #include "iclient.h"
 #include "igameevents.h"
+
 
 #include "sourcetvfix.h"
 
@@ -12,13 +13,6 @@ extern char g_cPrefix[];
 CDetour *g_pProcessClientInfoDetour = nullptr;
 
 class CBaseClient : public IGameEventListener2, public IClient {};
-
-class CNetMessage : public INetMessage {};
-class CLC_ClientInfo : public CNetMessage {
-public:
-    char offs[20];
-    bool m_bIsHLTV;
-};
 
 DETOUR_DECL_MEMBER1(ProcessClientInfo, bool, CLC_ClientInfo *, msg) {
 	if (msg->m_bIsHLTV) {

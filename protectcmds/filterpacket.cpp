@@ -3,7 +3,6 @@
 #include <helpers/strtools.h>
 
 #include <sys/socket.h>
-#include <iostream>
 #include <list>
 
 #include "filterpacket.h"
@@ -60,7 +59,7 @@ DETOUR_DECL_STATIC6(RecvFromHook, int, int, iSock, char *, pBuf, int, iLen, int,
 
 DETOUR_DECL_MEMBER2(ProcessPacketHook, void, netpacket_t *, packet, bool, bHasHeader) {
 	if (memcmp(packet->data+3, NORMAL_SEQ_PACKET, 1)) return;
-	
+
 	if (IsPacketsFlood(g_GamePacketList, packet->from.GetIP(), GAME_PACKET_TIMEOUT, GAME_PACKET_CHECK_TIME, MAX_GAME_PACKETS_PER_CHECK_TIME)) return;
 	
 	return DETOUR_MEMBER_CALL(ProcessPacketHook)(packet, bHasHeader);
@@ -68,7 +67,7 @@ DETOUR_DECL_MEMBER2(ProcessPacketHook, void, netpacket_t *, packet, bool, bHasHe
 
 bool IsPacketsFlood(list<PacketCount *> &pPacketList, unsigned int ip, int iTimeoutSec, int iCheckTime, int iMaxPackets) {
 	PacketCount *pPacketCount = nullptr;
-	float fTime = g_pGlobals->realtime;
+	float fTime = g_pGlobals->curtime;
 	
 	for (auto iter = pPacketList.begin(); iter != pPacketList.end(); iter++) {
 		pPacketCount = *iter;

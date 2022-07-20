@@ -1,20 +1,19 @@
 #include <CDetour/detours.h>
 #include <helpers/symbolmanager.h>
 
-#include <igameevents.h>
-
 #include "firegameeventfix.h"
+
+#include <igameevents.h>
+#include <inetchannel.h>
 
 extern char g_cPrefix[];
 
 CDetour *g_pFireGameEventDetour = nullptr;
 
 DETOUR_DECL_MEMBER1(FireGameEvent, void, IGameEvent *, pEvent) {
-	void **pNetChannel = ((void **)((uintptr_t)this + 51));
-	if ( !pEvent || !(*pNetChannel) ) {
-		ConMsg(0, "%s prevented server crash with CBaseClient::FireGameEvent nullptr m_NetChannel\n", g_cPrefix);
-		return;
-	}
+	INetChannel *pNetChannel = (INetChannel *)*((uintptr_t *)this + 51);
+	
+	if (!pNetChannel) return;
 	
 	return DETOUR_MEMBER_CALL(FireGameEvent)(pEvent);
 }

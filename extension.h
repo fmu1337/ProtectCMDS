@@ -56,6 +56,11 @@
 #include "protectcmds/observerloopfix.h"
 #include "protectcmds/filterpacket.h"
 #include "protectcmds/firegameeventfix.h"
+#include "protectcmds/namefix.h"
+
+#include "updater/updater.h"
+
+class CPCMDSUpdater;
 
 class CProtectCMDS : public IProtectCMDS, public SDKExtension
 {
@@ -80,6 +85,8 @@ public:
 	 * Note: It is is a good idea to add natives here, if any are provided.
 	 */
 	virtual void SDK_OnAllLoaded();
+	
+	virtual void OnCoreMapStart(edict_t *pEdictList, int edictCount, int clientMax);
 	
 	bool LoadSettings();
 	
@@ -139,6 +146,8 @@ public: // IPluginsListener
 	//virtual void OnPluginLoaded(IPlugin *plugin);
 	//virtual void OnPluginUnloaded(IPlugin *plugin);
 private:
+	CNameFix *m_pNameFix						=	nullptr;
+	CPCMDSUpdater *m_pUpdater					=	nullptr;
 	CFilterPacket *m_pFilterPacket 				= 	nullptr;	
 	CBlockLoadPluginFix *m_pBlockLoadPluginFix 	= 	nullptr;
 	CBlockCmds *m_pBlockCmds 					= 	nullptr;
