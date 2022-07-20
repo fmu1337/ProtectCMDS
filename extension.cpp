@@ -142,7 +142,7 @@ bool CProtectCMDS::SDK_OnLoad(char* error, size_t maxlength, bool late) {
 	
 	if (g_pSettings->GetInteger("Updater", "protectcmds_updater_enable", 1)) {
 		m_pUpdater = new CPCMDSUpdater;
-		if (m_pUpdater){
+		if (m_pUpdater) {
 			m_pUpdater->SetUrl(g_pSettings->GetString("Updater", "protectcmds_updater_url", "http://protectcmds.gm-world.ru"));
 			m_pUpdater->SetExperimental(g_pSettings->GetInteger("Updater", "protectcmds_updater_experimental", 0));
 			m_pUpdater->Load((void *)pExtensionManager);
@@ -252,6 +252,23 @@ void CProtectCMDS::SDK_OnUnload() {
 	if (m_pVoiceFix) m_pVoiceFix->Unload();
 	if (m_pFireGameEventFix) m_pFireGameEventFix->Unload();
 	if (m_pNameFix) m_pNameFix->Unload();
+	
+	if (m_pUpdater) {
+		m_pUpdater->Unload();
+		
+		delete m_pUpdater;
+		m_pUpdater = nullptr;
+	}
+	
+	if (g_pSymbolManager) {
+		delete g_pSymbolManager;
+		g_pSymbolManager = nullptr;
+	}
+	
+	if (g_pSettings) {
+		delete g_pSettings;
+		g_pSettings = nullptr;
+	}
 	
 	g_pSM->LogMessage(myself, "Unloaded");
 }
