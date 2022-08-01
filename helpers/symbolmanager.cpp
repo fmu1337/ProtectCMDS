@@ -23,15 +23,17 @@ void* CSymbolManager::Resolve(ESymbolModule symbolModule, const char* symbol) {
 	return memutils->ResolveSymbol(m_pLibrary[symbolModule], symbol);
 }
 
-bool CSymbolManager::AddModule(ESymbolModule symbolModule, const char* moduleName) {
-	void* pLibrary = dlopen(moduleName, RTLD_NOW);
+bool CSymbolManager::AddModule(ESymbolModule symbolModule, const char* sModuleName) {
+	void* pLibrary = dlopen(sModuleName, RTLD_NOW | RTLD_NOLOAD);
 	
-	if(!pLibrary) {
-		cout << "Модуль: " << moduleName << " не был загружен!" << endl;
+	if (!pLibrary) {
+		cout << "Модуль: " << sModuleName << " не был загружен!" << endl;
 		return false;
 	}
 	
 	m_pLibrary[symbolModule] = pLibrary;
+	
+	dlclose(pLibrary);
 	
 	return true;
 }
