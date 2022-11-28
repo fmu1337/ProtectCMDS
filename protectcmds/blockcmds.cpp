@@ -1,6 +1,7 @@
 #define MAXPLAYERS 65
 
 #include <fstream>
+#include <algorithm>
 
 #include <helpers/util.h>
 #include <CDetour/detours.h>
