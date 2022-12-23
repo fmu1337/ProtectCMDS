@@ -31,11 +31,11 @@ int g_iUserCmds[MAXPLAYERS+1];
 SourceHook::List<BlockCommands *> m_pBlockListCmds;
 
 DETOUR_DECL_MEMBER1(ExecuteStringCommand, bool, const char *, pCommand) {
-	CBaseClient *CBClient = reinterpret_cast<CBaseClient*>(this);
-	int iClient = CBClient->GetPlayerSlot() + 1;
-	IGamePlayer *pClient = playerhelpers->GetGamePlayer(iClient);
+	CBaseClient *pClient = reinterpret_cast<CBaseClient*>(this);
+	int iClient = pClient->GetPlayerSlot() + 1;
+	//IGamePlayer *pClient = playerhelpers->GetGamePlayer(iClient);
 	
-	if (!pClient || !pClient->IsConnected()) return false;
+	if (!pClient->IsConnected()) return false;
 	
 	if (strlen(pCommand) > 1023) return false;
 	
@@ -44,8 +44,8 @@ DETOUR_DECL_MEMBER1(ExecuteStringCommand, bool, const char *, pCommand) {
 	if (g_fLastUserCmds[iClient] > fTime) {
 		g_iUserCmds[iClient]++;
 		if (g_iUserCmds[iClient] > g_iMaxUserCmds) {
-			ConMsg(0, "%s %s has been kicked by spamming (max: %d)\n", g_cPrefix, pClient->GetName(), g_iMaxUserCmds);
-			pClient->Kick("[ProtectCMDS] you have been kicked by spam");
+			ConMsg(0, "%s %s has been kicked by spamming (max: %d)\n", g_cPrefix, pClient->GetClientName(), g_iMaxUserCmds);
+			pClient->Disconnect("[ProtectCMDS] you have been kicked by spam");
 			
 			return false;
 		}
@@ -62,7 +62,7 @@ DETOUR_DECL_MEMBER1(ExecuteStringCommand, bool, const char *, pCommand) {
 	if (CBlockCmds::IsCommandBlock(pCmd)) {
 		char Msg[1024];
 		UTIL_Format(Msg, sizeof(Msg), "%s the command \"%s\" is blocked\n", g_cPrefix, pCmd);
-		pClient->PrintToConsole(Msg);
+		pClient->ClientPrintf(Msg);
 		return false;
 	}
 	
