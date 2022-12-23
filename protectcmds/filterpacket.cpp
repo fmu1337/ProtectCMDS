@@ -98,8 +98,7 @@ bool IsPacketsFlood(unsigned int ip) {
 		}
 	}
 
-	i++;
-	if (i >= MAX_PACKET_LIST) return false;
+	if (++i >= MAX_PACKET_LIST) return false;
 	
 	g_PacketList[i].ip = ip;
 	g_PacketList[i].fLastTimePacket = fTime + GAME_PACKET_CHECK_TIME;
