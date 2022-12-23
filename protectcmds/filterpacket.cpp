@@ -72,8 +72,7 @@ bool IsPacketsFlood(unsigned int ip) {
 	float fTime = g_pGlobals->curtime;
 	float fTimedOut = fTime - (GAME_PACKET_TIMEOUT - GAME_PACKET_CHECK_TIME);
 	
-	int i = 0;
-	for (i = 0; i < MAX_PACKET_LIST; i++) {
+	for (int i = 0; i < MAX_PACKET_LIST; i++) {
 		if (g_PacketList[i].ip == 0) continue;
 		
 		if (g_PacketList[i].fLastTimePacket < fTimedOut) {
@@ -86,11 +85,11 @@ bool IsPacketsFlood(unsigned int ip) {
 			if (g_PacketList[i].fLastTimePacket > fTime) {
 				if (g_PacketList[i].iCountPacket > MAX_GAME_PACKETS_PER_CHECK_TIME) return true;
 				
-				g_PacketList[i].fLastTimePacket = fTime;
+				g_PacketList[i].fLastTimePacket = fTime + GAME_PACKET_CHECK_TIME;
 				g_PacketList[i].iCountPacket++;
 			}
 			else {
-				g_PacketList[i].fLastTimePacket = fTime;
+				g_PacketList[i].fLastTimePacket = fTime + GAME_PACKET_CHECK_TIME;
 				g_PacketList[i].iCountPacket = 1;
 			}
 			
@@ -98,51 +97,18 @@ bool IsPacketsFlood(unsigned int ip) {
 		}
 	}
 
-	if (++i >= MAX_PACKET_LIST) return false;
-	
-	g_PacketList[i].ip = ip;
-	g_PacketList[i].fLastTimePacket = fTime + GAME_PACKET_CHECK_TIME;
-	g_PacketList[i].iCountPacket = 1;
-	
-	return false;
-	
-	/*PacketCount *pPacketCount = nullptr;
-	float fTime = g_pGlobals->curtime;
-	
-	for (auto iter = pPacketList.begin(); iter != pPacketList.end(); iter++) {
-		pPacketCount = *iter;
-		
-		//Check timed out
-		if (pPacketCount->fLastTimePacket + GAME_PACKET_TIMEOUT < fTime) {
-			delete pPacketCount;
-			iter = pPacketList.erase(iter);
-			 
-			continue;
-		}
-		
-		if (pPacketCount->ip == ip) {
-			if (pPacketCount->fLastTimePacket + GAME_PACKET_CHECK_TIME > fTime) {
-				if (pPacketCount->iCountPacket >= MAX_GAME_PACKETS_PER_CHECK_TIME) return true;
-				
-				pPacketCount->fLastTimePacket = fTime;
-				pPacketCount->iCountPacket++;
-			}
-			else {
-				pPacketCount->fLastTimePacket = fTime;
-				pPacketCount->iCountPacket = 1;
-			}
+	for (int i = 0; i < MAX_PACKET_LIST; i++) {
+		if (g_PacketList[i].ip == 0) {
+			g_PacketList[i].ip = ip;
+			g_PacketList[i].fLastTimePacket = fTime + GAME_PACKET_CHECK_TIME;
+			g_PacketList[i].iCountPacket = 1;
 			
-			return false;
+			break;
 		}
+		
 	}
 	
-	pPacketCount = new PacketCount;
-	pPacketCount->ip = ip;
-	pPacketCount->fLastTimePacket = fTime;
-	pPacketCount->iCountPacket = 1;
-	pPacketList.push_back(pPacketCount);
-	
-	return false;*/
+	return false;
 }
 
 void CFilterPacket::Load() {
