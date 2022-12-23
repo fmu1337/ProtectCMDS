@@ -28,6 +28,9 @@ ConVar *pSV_FilterBan = nullptr;
 
 list<PacketCount *> g_GamePacketList;
 
+#define MAX_PACKET_LIST 128
+PacketCount g_PacketList[MAX_PACKET_LIST];
+
 void (*Filter_SendBan)(const netadr_t & addr) = nullptr;
 
 DETOUR_DECL_STATIC1(Filter_ShouldDiscardHook, bool, const netadr_t &, adr) {
@@ -60,20 +63,58 @@ DETOUR_DECL_STATIC6(RecvFromHook, int, int, iSock, char *, pBuf, int, iLen, int,
 DETOUR_DECL_MEMBER2(ProcessPacketHook, void, netpacket_t *, packet, bool, bHasHeader) {
 	if (memcmp(packet->data+3, NORMAL_SEQ_PACKET, 1)) return;
 
-	if (IsPacketsFlood(g_GamePacketList, packet->from.GetIP(), GAME_PACKET_TIMEOUT, GAME_PACKET_CHECK_TIME, MAX_GAME_PACKETS_PER_CHECK_TIME)) return;
+	if (IsPacketsFlood(packet->from.GetIP())) return;
 	
 	return DETOUR_MEMBER_CALL(ProcessPacketHook)(packet, bHasHeader);
 }
 
-bool IsPacketsFlood(list<PacketCount *> &pPacketList, unsigned int ip, int iTimeoutSec, int iCheckTime, int iMaxPackets) {
-	PacketCount *pPacketCount = nullptr;
+bool IsPacketsFlood(unsigned int ip) {
+	float fTime = g_pGlobals->curtime;
+	float fTimedOut = fTime - (GAME_PACKET_TIMEOUT - GAME_PACKET_CHECK_TIME);
+	
+	int i = 0;
+	for (i = 0; i < MAX_PACKET_LIST; i++) {
+		if (g_PacketList[i].ip == 0) continue;
+		
+		if (g_PacketList[i].fLastTimePacket < fTimedOut) {
+			g_PacketList[i].ip = 0;
+			 
+			continue;
+		}
+	
+		if (g_PacketList[i].ip == ip) {
+			if (g_PacketList[i].fLastTimePacket > fTime) {
+				if (g_PacketList[i].iCountPacket > MAX_GAME_PACKETS_PER_CHECK_TIME) return true;
+				
+				g_PacketList[i].fLastTimePacket = fTime;
+				g_PacketList[i].iCountPacket++;
+			}
+			else {
+				g_PacketList[i].fLastTimePacket = fTime;
+				g_PacketList[i].iCountPacket = 1;
+			}
+			
+			return false;
+		}
+	}
+
+	i++;
+	if (i >= MAX_PACKET_LIST) return false;
+	
+	g_PacketList[i].ip = ip;
+	g_PacketList[i].fLastTimePacket = fTime + GAME_PACKET_CHECK_TIME;
+	g_PacketList[i].iCountPacket = 1;
+	
+	return false;
+	
+	/*PacketCount *pPacketCount = nullptr;
 	float fTime = g_pGlobals->curtime;
 	
 	for (auto iter = pPacketList.begin(); iter != pPacketList.end(); iter++) {
 		pPacketCount = *iter;
 		
 		//Check timed out
-		if (pPacketCount->fLastTimePacket + iTimeoutSec < fTime) {
+		if (pPacketCount->fLastTimePacket + GAME_PACKET_TIMEOUT < fTime) {
 			delete pPacketCount;
 			iter = pPacketList.erase(iter);
 			 
@@ -81,8 +122,8 @@ bool IsPacketsFlood(list<PacketCount *> &pPacketList, unsigned int ip, int iTime
 		}
 		
 		if (pPacketCount->ip == ip) {
-			if (pPacketCount->fLastTimePacket + iCheckTime > fTime) {
-				if (pPacketCount->iCountPacket >= iMaxPackets) return true;
+			if (pPacketCount->fLastTimePacket + GAME_PACKET_CHECK_TIME > fTime) {
+				if (pPacketCount->iCountPacket >= MAX_GAME_PACKETS_PER_CHECK_TIME) return true;
 				
 				pPacketCount->fLastTimePacket = fTime;
 				pPacketCount->iCountPacket++;
@@ -102,7 +143,7 @@ bool IsPacketsFlood(list<PacketCount *> &pPacketList, unsigned int ip, int iTime
 	pPacketCount->iCountPacket = 1;
 	pPacketList.push_back(pPacketCount);
 	
-	return false;
+	return false;*/
 }
 
 void CFilterPacket::Load() {

@@ -39,17 +39,17 @@ DETOUR_DECL_MEMBER3(SendNetMsg, bool, INetMessage &, msg, bool, bReliable, char,
 }
 
 DETOUR_DECL_MEMBER1(ProcessVoiceData, bool, CLC_VoiceData *, msg) {
-	CBaseClient *CBClient = reinterpret_cast<CBaseClient*>(this);
-	int iClient = CBClient->GetPlayerSlot() + 1;
-	IGamePlayer *pClient = playerhelpers->GetGamePlayer(iClient);
+	CBaseClient *pClient = reinterpret_cast<CBaseClient*>(this);
+	int iClient = pClient->GetPlayerSlot() + 1;
+	//IGamePlayer *pClient = playerhelpers->GetGamePlayer(iClient);
 	
-	if (!pClient || !pClient->IsConnected()) return false;
+	if (!pClient->IsConnected()) return false;
 	
 	int iLenMsg = msg->m_nLength >> 3;
 
 	//if (iLenMsg > 200) {
 	if (iLenMsg > 300) {
-		pClient->Kick("[ProtectCMDS] buffer overflow in net message");
+		pClient->Disconnect("[ProtectCMDS] buffer overflow in net message");
 
 		return false;
 	}
