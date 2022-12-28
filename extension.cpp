@@ -233,6 +233,10 @@ void CProtectCMDS::SDK_OnAllLoaded() {
 	m_pNameFix = new CNameFix;
 	if (m_pNameFix) m_pNameFix->Load();
 	else g_pSM->LogError(myself, "NameFix failed to load!");
+	
+	m_pVortexFix = new CVortexFix;
+	if (m_pVortexFix) m_pVortexFix->Load();
+	else g_pSM->LogError(myself, "VortexFix failed to load!");
 }
 
 void CProtectCMDS::SDK_OnUnload() {

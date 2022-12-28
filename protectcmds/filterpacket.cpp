@@ -26,8 +26,6 @@ CDetour *g_pProcessPacketDetour = nullptr;
 CUtlVector < ipfilter_t > *g_pIPFilters = nullptr;
 ConVar *pSV_FilterBan = nullptr;
 
-list<PacketCount *> g_GamePacketList;
-
 #define MAX_PACKET_LIST 128
 PacketCount g_PacketList[MAX_PACKET_LIST];
 
@@ -103,12 +101,11 @@ bool IsPacketsFlood(unsigned int ip) {
 			g_PacketList[i].fLastTimePacket = fTime + GAME_PACKET_CHECK_TIME;
 			g_PacketList[i].iCountPacket = 1;
 			
-			break;
+			return false;
 		}
-		
 	}
 	
-	return false;
+	return true;
 }
 
 void CFilterPacket::Load() {

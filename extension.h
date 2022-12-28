@@ -57,6 +57,7 @@
 #include "protectcmds/filterpacket.h"
 #include "protectcmds/firegameeventfix.h"
 #include "protectcmds/namefix.h"
+#include "protectcmds/vortexfix.h"
 
 #include "updater/updater.h"
 
@@ -163,6 +164,7 @@ private:
 	CTakeDamageFix *m_pTakeDamageFix			=	nullptr;
 	CVoiceFix *m_pVoiceFix						=	nullptr;
 	CFireGameEventFix *m_pFireGameEventFix		=	nullptr;
+	CVortexFix *m_pVortexFix					=	nullptr;
 };
 
 #endif // _INCLUDE_SOURCEMOD_EXTENSION_PROPER_H_
