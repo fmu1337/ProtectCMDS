@@ -77,7 +77,7 @@ void CPreConnectHook::Load() {
 		GetNextUserID = reinterpret_cast<decltype(GetNextUserID)>(pAddrFunc);
 	}
 
-	g_pPreConnectForward = forwards->CreateForward("ProtectCMDS_OnClientPreConnect", ET_Event, 5, nullptr, Param_Cell, Param_String, Param_String, Param_String, Param_String);
+	g_pPreConnectForward = forwards->CreateForward("ProtectCMDS_OnClientPreConnect", ET_Hook, 5, nullptr, Param_Cell, Param_String, Param_String, Param_String, Param_String);
 	g_pPreConnectPostForward = forwards->CreateForward("ProtectCMDS_OnClientPreConnectPost", ET_Ignore, 4, nullptr, Param_Cell, Param_String, Param_String, Param_String);
 
 }

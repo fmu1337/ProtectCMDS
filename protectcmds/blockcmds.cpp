@@ -23,6 +23,7 @@ extern char g_cPrefix[];
 extern CGlobalVars* g_pGlobals;
 
 CDetour *g_pExecuteStringCommandDetour = nullptr;
+IForward *g_pExecuteStringCommand = nullptr;
 
 int g_iMaxUserCmds = 30;
 float g_fLastUserCmds[MAXPLAYERS+1];
@@ -65,6 +66,13 @@ DETOUR_DECL_MEMBER1(ExecuteStringCommand, bool, const char *, pCommand) {
 		pClient->ClientPrintf(Msg);
 		return false;
 	}
+	
+	cell_t result = Pl_Continue;
+	g_pExecuteStringCommand->PushCell(iClient);
+	g_pExecuteStringCommand->PushString(pCmd);
+	g_pExecuteStringCommand->Execute(&result);
+	
+	if (result >= Pl_Handled) return false;
 	
 	return DETOUR_MEMBER_CALL(ExecuteStringCommand)(pCommand);
 }
@@ -179,11 +187,19 @@ void CBlockCmds::Load() {
 		}
 		else g_pSM->LogError(myself, "Failed to setup CGameClient::ExecuteStringCommand detour");
 	}
+	
+	if (!g_pExecuteStringCommand) g_pExecuteStringCommand = forwards->CreateForward("ProtectCMDS_OnClientCommand", ET_Hook, 2, nullptr, Param_Cell, Param_String);
+
 }
 void CBlockCmds::Unload() {
 	if (g_pExecuteStringCommandDetour) {
 		g_pExecuteStringCommandDetour->Destroy();
 		g_pExecuteStringCommandDetour = nullptr;
+	}
+	
+	if (g_pExecuteStringCommand) {
+		forwards->ReleaseForward(g_pExecuteStringCommand);
+		g_pExecuteStringCommand = nullptr;
 	}
 	
 	m_pBlockListCmds.clear();

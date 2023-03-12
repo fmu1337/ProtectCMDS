@@ -8,6 +8,7 @@
 #include "filterpacket.h"
 
 #include <icvar.h>
+#include <tier0/vcrmode.h>
 
 using namespace std;
 
@@ -31,6 +32,9 @@ PacketCount g_PacketList[MAX_PACKET_LIST];
 
 void (*Filter_SendBan)(const netadr_t & addr) = nullptr;
 
+bool g_bRecvFromHooked = false;
+int (*g_pRealRecvFrom) (int , char *, int , int , struct sockaddr *, int *);
+
 DETOUR_DECL_STATIC1(Filter_ShouldDiscardHook, bool, const netadr_t &, adr) {
 	if (g_pIPFilters->Count() > 65) return false;
 	
@@ -47,12 +51,23 @@ DETOUR_DECL_MEMBER1(ProcessConnectionlessPacketHook, bool, netpacket_t *, packet
 	return DETOUR_MEMBER_CALL(ProcessConnectionlessPacketHook)(packet);
 }
 
-DETOUR_DECL_STATIC6(RecvFromHook, int, int, iSock, char *, pBuf, int, iLen, int, iFlags, void *, from, void *, fromlen) {
+/*DETOUR_DECL_STATIC6(RecvFromHook, int, int, iSock, char *, pBuf, int, iLen, int, iFlags, void *, from, void *, fromlen) {
 	int iRet = DETOUR_STATIC_CALL(RecvFromHook)(iSock, pBuf, iLen, iFlags, from, fromlen);
 	
 	if (!iRet) {
 		iRet = 1;
 		pBuf[0] = '0';
+	}
+	
+	return iRet;
+}*/
+
+int RecvFromHook(int s, char *buf, int len, int flags, struct sockaddr *from, int *fromlen) {
+	int iRet = g_pRealRecvFrom(s, buf, len, flags, from, fromlen);
+	
+	if (!iRet) {
+		iRet = 1;
+		buf[0] = '\0';
 	}
 	
 	return iRet;
@@ -148,10 +163,16 @@ void CFilterPacket::Load() {
 		else g_pSM->LogError(myself, "Failed to setup CBaseServer::ProcessConnectionlessPacket detour");
 	}
 	
-	if (!g_pRecvFromDetour) {
+	/*if (!g_pRecvFromDetour) {
 		g_pRecvFromDetour = DETOUR_CREATE_STATIC(RecvFromHook, (void *)recvfrom);
 		if (g_pRecvFromDetour) g_pRecvFromDetour->EnableDetour();
 		else g_pSM->LogError(myself, "Failed to setup recvfrom detour");
+	}*/
+	
+	if (!g_bRecvFromHooked) {
+		g_pRealRecvFrom = g_pVCR->Hook_recvfrom;
+		g_pVCR->Hook_recvfrom = &RecvFromHook;
+		g_bRecvFromHooked = true;		
 	}
 	
 	if (!g_pProcessPacketDetour) {
@@ -173,10 +194,15 @@ void CFilterPacket::Unload() {
 		g_pProcessConnectionlessPacketDetour = nullptr;
 	}
 	
-	if (g_pRecvFromDetour) {
+	/*if (g_pRecvFromDetour) {
 		g_pRecvFromDetour->Destroy();
 		g_pRecvFromDetour = nullptr;
-	}
+	}*/
+	
+	if (g_bRecvFromHooked) {
+		g_pVCR->Hook_recvfrom = g_pRealRecvFrom;
+		g_bRecvFromHooked = false;		
+	}	
 	
 	if (g_pProcessPacketDetour) {
 		g_pProcessPacketDetour->Destroy();

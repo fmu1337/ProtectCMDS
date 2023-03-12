@@ -34,7 +34,7 @@ OBJECTS += protectcmds/sourcetvfix.cpp protectcmds/takedamagefix.cpp
 OBJECTS += protectcmds/voicefix.cpp protectcmds/filterpacket.cpp
 OBJECTS += protectcmds/firegameeventfix.cpp protectcmds/ifix.cpp
 OBJECTS += protectcmds/namefix.cpp protectcmds/netmessages.cpp
-OBJECTS += protectcmds/vortexfix.cpp
+OBJECTS += protectcmds/voxelhashfix.cpp
 OBJECTS += helpers/symbolmanager.cpp helpers/strtools.cpp helpers/sha256.cpp
 OBJECTS += helpers/inireader.cpp helpers/ini.c
 OBJECTS += updater/updater.cpp updater/http.cpp
@@ -43,7 +43,7 @@ OBJECTS += updater/updater.cpp updater/http.cpp
 ### CONFIGURE ANY OTHER FLAGS/OPTIONS HERE ###
 ##############################################
 
-C_OPT_FLAGS = -DNDEBUG -O3 -funroll-loops -pipe -fno-strict-aliasing -msse -msse2
+C_OPT_FLAGS = -DNDEBUG -O3 -funroll-loops -pipe -fno-strict-aliasing -msse -msse2 -march=nehalem
 C_DEBUG_FLAGS = -D_DEBUG -DDEBUG -g -ggdb3
 C_GCC4_FLAGS = -fvisibility=hidden
 CPP_GCC4_FLAGS = -fvisibility-inlines-hidden -std=c++14

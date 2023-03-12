@@ -57,7 +57,7 @@
 #include "protectcmds/filterpacket.h"
 #include "protectcmds/firegameeventfix.h"
 #include "protectcmds/namefix.h"
-#include "protectcmds/vortexfix.h"
+#include "protectcmds/voxelhashfix.h"
 
 #include "updater/updater.h"
 
@@ -164,7 +164,9 @@ private:
 	CTakeDamageFix *m_pTakeDamageFix			=	nullptr;
 	CVoiceFix *m_pVoiceFix						=	nullptr;
 	CFireGameEventFix *m_pFireGameEventFix		=	nullptr;
-	CVortexFix *m_pVortexFix					=	nullptr;
+	CVoxelHashFix *m_pVoxelHashFix				=	nullptr;
 };
+
+cell_t GetAbsoluteFrameTime(IPluginContext *pContext, const cell_t *params);
 
 #endif // _INCLUDE_SOURCEMOD_EXTENSION_PROPER_H_

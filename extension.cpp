@@ -55,7 +55,7 @@ CGlobalVars* g_pGlobals = nullptr;
 
 #define ENGINE_MAX 3
 const char sEngineName[ENGINE_MAX][19] = {
-	"bin/engine_i686.so", "bin/engine_i386.so", "bin/engine_amd.so"
+	"bin/engine_i686.so", "bin/engine_i486.so", "bin/engine_amd.so"
 };
 
 bool CProtectCMDS::GetEngineNameLoaded(char *pEngine, int iMaxLength) {
@@ -125,6 +125,15 @@ void CProtectCMDS::OnCoreMapStart(edict_t *pEdictList, int edictCount, int clien
 	if (m_pVoiceFix) m_pVoiceFix->OnMapStart();
 }
 
+sp_nativeinfo_t protectcmds_natives[] = {
+	{"ProtectCMDS_GetAbsoluteFrameTime",    GetAbsoluteFrameTime},
+	{nullptr, nullptr}
+};
+
+cell_t GetAbsoluteFrameTime(IPluginContext *pContext, const cell_t *params) {
+	return sp_ftoc(g_pGlobals->absoluteframetime);
+}
+
 bool CProtectCMDS::SDK_OnLoad(char* error, size_t maxlength, bool late) {
 	if (!LoadLibraries()) return false;
 	if (!LoadSettings()) return false;
@@ -155,6 +164,8 @@ bool CProtectCMDS::SDK_OnLoad(char* error, size_t maxlength, bool late) {
 		if (m_pFilterPacket) m_pFilterPacket->Load();
 		else g_pSM->LogError(myself, "Filter Packet failed to load!");
 	}
+	
+	sharesys->AddNatives(myself, protectcmds_natives);
 	
 	sharesys->RegisterLibrary(myself, "ProtectCMDS");
 	
@@ -234,9 +245,9 @@ void CProtectCMDS::SDK_OnAllLoaded() {
 	if (m_pNameFix) m_pNameFix->Load();
 	else g_pSM->LogError(myself, "NameFix failed to load!");
 	
-	m_pVortexFix = new CVortexFix;
-	if (m_pVortexFix) m_pVortexFix->Load();
-	else g_pSM->LogError(myself, "VortexFix failed to load!");
+	m_pVoxelHashFix = new CVoxelHashFix;
+	if (m_pVoxelHashFix) m_pVoxelHashFix->Load();
+	else g_pSM->LogError(myself, "VoxelHashFix failed to load!");
 }
 
 void CProtectCMDS::SDK_OnUnload() {

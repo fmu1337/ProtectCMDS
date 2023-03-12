@@ -28,7 +28,7 @@ int g_iMaxDetectVoiceExploitForKick = 30;
 
 float g_fLastTimeBlockVoice[MAXPLAYERS+1];
 
-DETOUR_DECL_MEMBER3(SendNetMsg, bool, INetMessage &, msg, bool, bReliable, char, str) {
+/*DETOUR_DECL_MEMBER3(SendNetMsg, bool, INetMessage &, msg, bool, bReliable, char, str) {
 	static char sendMsgBuffer[4000];
 	bf_write bfMsg(sendMsgBuffer, sizeof(sendMsgBuffer));
 	bf_write *pStream = (bf_write *)((uintptr_t)(this) + 68);
@@ -36,6 +36,17 @@ DETOUR_DECL_MEMBER3(SendNetMsg, bool, INetMessage &, msg, bool, bReliable, char,
 	
 	return msg.WriteToBuffer(*pStream);
 	//return DETOUR_MEMBER_CALL(SendNetMsg)(msg, bReliable, str);
+}*/
+
+DETOUR_DECL_MEMBER3(SendNetMsg, bool, INetMessage &, msg, bool, bReliable) {
+	static char sendMsgBuffer[4000];
+	bf_write bfMsg(sendMsgBuffer, sizeof(sendMsgBuffer));
+	bf_write *pStream = (bf_write *)((uintptr_t)(this) + 68);
+	if (msg.IsReliable() || bReliable) pStream = (bf_write *)((uintptr_t)(this) + 32);
+	
+	if (!msg.WriteToBuffer(bfMsg) || pStream->GetNumBitsLeft() < bfMsg.GetNumBitsWritten()) return false;
+
+	return DETOUR_MEMBER_CALL(SendNetMsg)(msg, bReliable);
 }
 
 DETOUR_DECL_MEMBER1(ProcessVoiceData, bool, CLC_VoiceData *, msg) {
@@ -115,7 +126,7 @@ void CVoiceFix::Load() {
 		}
 	}
 	
-	g_pVoiceForward = forwards->CreateForward("OnClientVoice", ET_Event, 1, nullptr, Param_Cell);
+	g_pVoiceForward = forwards->CreateForward("OnClientVoice", ET_Hook, 1, nullptr, Param_Cell);
 }
 
 void CVoiceFix::Unload() {
