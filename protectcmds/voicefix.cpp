@@ -38,7 +38,7 @@ float g_fLastTimeBlockVoice[MAXPLAYERS+1];
 	//return DETOUR_MEMBER_CALL(SendNetMsg)(msg, bReliable, str);
 }*/
 
-DETOUR_DECL_MEMBER3(SendNetMsg, bool, INetMessage &, msg, bool, bReliable) {
+DETOUR_DECL_MEMBER2(SendNetMsg, bool, INetMessage &, msg, bool, bReliable) {
 	static char sendMsgBuffer[4000];
 	bf_write bfMsg(sendMsgBuffer, sizeof(sendMsgBuffer));
 	bf_write *pStream = (bf_write *)((uintptr_t)(this) + 68);
