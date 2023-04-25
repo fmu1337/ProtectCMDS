@@ -31,10 +31,23 @@ int g_iUserCmds[MAXPLAYERS+1];
 
 SourceHook::List<BlockCommands *> m_pBlockListCmds;
 
+#define NUM_BAD_CMDS 49
+
+char g_sBlockBadCmds[NUM_BAD_CMDS][100] = {
+	"ai_test_los", "changelevel", "cl_fullupdate", "dbghist_addline", "dbghist_dump", "drawcross", "drawline",
+	"dump_entity_sizes", "dump_globals", "dump_panels", "dump_terrain", "dumpcountedstrings", "dumpentityfactories",
+	"dumpeventqueue", "dumpgamestringtable", "editdemo", "endround", "groundlist", "listmodels", "map_showspawnpoints",
+	"mem_dump", "mp_dump_timers", "npc_ammo_deplete", "npc_heal", "npc_speakall", "npc_thinknow", "physics_budget",
+	"physics_debug_entity", "physics_highlight_active", "physics_report_active", "physics_select", "q_sndrcn",
+	"report_entities", "report_touchlinks", "report_simthinklist", "respawn_entities", "rr_reloadresponsesystems", 
+	"scene_flush", "send_me_rcon", "snd_digital_surround", "snd_restart", "soundlist", "soundscape_flush",
+	"sv_benchmark_force_start", "sv_findsoundname", "sv_soundemitter_filecheck", "sv_soundemitter_flush",
+	"sv_soundscape_printdebuginfo", "wc_update_entity" 
+};
+
 DETOUR_DECL_MEMBER1(ExecuteStringCommand, bool, const char *, pCommand) {
 	CBaseClient *pClient = reinterpret_cast<CBaseClient*>(this);
 	int iClient = pClient->GetPlayerSlot() + 1;
-	//IGamePlayer *pClient = playerhelpers->GetGamePlayer(iClient);
 	
 	if (!pClient->IsConnected()) return false;
 	
@@ -59,6 +72,9 @@ DETOUR_DECL_MEMBER1(ExecuteStringCommand, bool, const char *, pCommand) {
 	char pCmd[1024];
 	strcpy(pCmd, pCommand);
 	pCmd[1023] = '\0';
+	
+	for (int i = 0; i < NUM_BAD_CMDS; i++)
+		if (StrContains(pCmd, g_sBlockBadCmds[i], true) == 0) return false;
 	
 	if (CBlockCmds::IsCommandBlock(pCmd)) {
 		char Msg[1024];
