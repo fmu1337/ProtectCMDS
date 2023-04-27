@@ -248,6 +248,10 @@ void CProtectCMDS::SDK_OnAllLoaded() {
 	m_pVoxelHashFix = new CVoxelHashFix;
 	if (m_pVoxelHashFix) m_pVoxelHashFix->Load();
 	else g_pSM->LogError(myself, "VoxelHashFix failed to load!");
+	
+	m_pSpecGotoFix = new CSpecGotoFix;
+	if (m_pSpecGotoFix) m_pSpecGotoFix->Load();
+	else g_pSM->LogError(myself, "SpecGotoFix failed to load!");
 }
 
 void CProtectCMDS::SDK_OnUnload() {

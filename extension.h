@@ -58,6 +58,7 @@
 #include "protectcmds/firegameeventfix.h"
 #include "protectcmds/namefix.h"
 #include "protectcmds/voxelhashfix.h"
+#include "protectcmds/specgotofix.h"
 
 #include "updater/updater.h"
 
@@ -165,6 +166,7 @@ private:
 	CVoiceFix *m_pVoiceFix						=	nullptr;
 	CFireGameEventFix *m_pFireGameEventFix		=	nullptr;
 	CVoxelHashFix *m_pVoxelHashFix				=	nullptr;
+	CSpecGotoFix *m_pSpecGotoFix				=	nullptr;
 };
 
 cell_t GetAbsoluteFrameTime(IPluginContext *pContext, const cell_t *params);
