@@ -1,6 +1,7 @@
 enum ESymbolModule {
 	ENGINE = 0,
 	SERVER,
+	VALVE_API,
 	LAST
 };
 

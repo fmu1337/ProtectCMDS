@@ -35,6 +35,7 @@ OBJECTS += protectcmds/voicefix.cpp protectcmds/filterpacket.cpp
 OBJECTS += protectcmds/firegameeventfix.cpp protectcmds/ifix.cpp
 OBJECTS += protectcmds/namefix.cpp protectcmds/netmessages.cpp
 OBJECTS += protectcmds/voxelhashfix.cpp protectcmds/specgotofix.cpp
+OBJECTS += protectcmds/vacpatch.cpp
 OBJECTS += helpers/symbolmanager.cpp helpers/strtools.cpp helpers/sha256.cpp
 OBJECTS += helpers/inireader.cpp helpers/ini.c
 OBJECTS += updater/updater.cpp updater/http.cpp

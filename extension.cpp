@@ -86,6 +86,7 @@ bool CProtectCMDS::LoadLibraries() {
 	
 	if (!g_pSymbolManager->AddModule(ESymbolModule::ENGINE, sEngine)) return false;
 	if (!g_pSymbolManager->AddModule(ESymbolModule::SERVER, "cstrike/bin/server_i486.so")) return false;
+	if (!g_pSymbolManager->AddModule(ESymbolModule::VALVE_API, "bin/valve_api.so")) return false;
 	
 	Sys_LoadInterface("cstrike/bin/server_i486.so", INTERFACEVERSION_PLAYERINFOMANAGER, nullptr, (void**)&g_pPlayerInfoManager);
 	if (!g_pPlayerInfoManager) {
@@ -252,6 +253,12 @@ void CProtectCMDS::SDK_OnAllLoaded() {
 	m_pSpecGotoFix = new CSpecGotoFix;
 	if (m_pSpecGotoFix) m_pSpecGotoFix->Load();
 	else g_pSM->LogError(myself, "SpecGotoFix failed to load!");
+	
+	if (g_pSettings->GetInteger("VACPatch", "vacpatch_enable", 1)) {
+		m_pVACPatch = new CVACPatch;
+		if (m_pVACPatch) m_pVACPatch->Load();
+		else g_pSM->LogError(myself, "VACPatch failed to load!");
+	}
 }
 
 void CProtectCMDS::SDK_OnUnload() {
