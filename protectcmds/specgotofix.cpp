@@ -19,8 +19,6 @@ enum {
 	OBS_MODE_CHASE,		// follow a player in third person view
 	OBS_MODE_ROAMING,	// free roaming
 };
-
-extern char g_cPrefix[];
  
 CDetour *g_pClientCommandDetour = nullptr;
 
