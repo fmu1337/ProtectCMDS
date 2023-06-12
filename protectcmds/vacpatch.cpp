@@ -14,18 +14,15 @@ DETOUR_DECL_MEMBER0(BSecureHook, int) {
 DETOUR_DECL_MEMBER0(SteamGameServerHook, void *) {
 	void *pSteamGameServer = DETOUR_MEMBER_CALL(SteamGameServerHook)();
 	if (!pSteamGameServer) return pSteamGameServer;
-	
-	static bool bInSecureInit = false;
-	if (!bInSecureInit) {
-		bInSecureInit = true;
-		
-		if (!CommandLine()->FindParm("-insecure") && !g_pBSecureDetour) {
-			void *fn = reinterpret_cast<void ***>(pSteamGameServer)[0][12];
-			g_pBSecureDetour = DETOUR_CREATE_MEMBER(BSecureHook, fn);
-			if (g_pBSecureDetour) g_pBSecureDetour->EnableDetour();
-			else g_pSM->LogError(myself, "failed detour to VAC Patch secure");
-		}
+
+	if (!CommandLine()->FindParm("-insecure") && !g_pBSecureDetour) {
+		void *fn = reinterpret_cast<void ***>(pSteamGameServer)[0][12];
+		g_pBSecureDetour = DETOUR_CREATE_MEMBER(BSecureHook, fn);
+		if (g_pBSecureDetour) g_pBSecureDetour->EnableDetour();
+		else g_pSM->LogError(myself, "failed detour to VAC Patch secure");
 	}
+	
+	g_pSteamGameServerDetour->Destroy();
 	
 	return pSteamGameServer;
 }

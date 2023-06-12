@@ -40,6 +40,6 @@ class CFilterPacket : public IFix {
 		void Unload();
 };
 
-bool IsPacketsFlood(unsigned int ip);
+bool IsPacketsFlood(unsigned int ip, char *pIP);
 
 #endif

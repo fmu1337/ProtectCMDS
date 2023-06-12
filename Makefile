@@ -6,14 +6,9 @@
 ###########################################
 
 SMSDK = /home/src_sdk/sourcemod/1.6
-HL2SDK_ORIG = /home/src_sdk/hl2sdk-episode1
-#HL2SDK_OB = ../hl2sdks/hl2sdk-ob
-HL2SDK_OB_VALVE = ../hl2sdks/hl2sdk-ob-valve
-HL2SDK_CSS = ../hl2sdks/hl2sdk-css
-HL2SDK_L4D = .../hl2sdks/hl2sdk-l4d
-HL2SDK_L4D2 = ../hl2sdks/hl2sdk-l4d2
-HL2SDK_CSGO = ../hl2sdk/hl2sdk-csgo
 MMSOURCE110 = /home/src_sdk/mmsource/1.10
+HL2SDK_ORIG = /home/src_sdk/hl2sdk-episode1
+HL2SDK_CSS = /home/src_sdk/hl2sdk-css
 
 #####################################
 ### EDIT BELOW FOR OTHER PROJECTS ###
@@ -25,18 +20,7 @@ PROJECT = protectcmds
 USEMETA = true
 
 OBJECTS = sdk/smsdk_ext.cpp extension.cpp helpers/util.cpp CDetour/detours.cpp asm/asm.c
-OBJECTS += protectcmds/blockloadplugin.cpp protectcmds/blockcmds.cpp
-OBJECTS += protectcmds/boneindexbynamefix.cpp protectcmds/gamestatsfix.cpp
-OBJECTS += protectcmds/gameuifix.cpp protectcmds/hashingsteamid.cpp
-OBJECTS += protectcmds/gamepacketfix.cpp protectcmds/observerloopfix.cpp
-OBJECTS += protectcmds/osfix.cpp protectcmds/preconnecthook.cpp
-OBJECTS += protectcmds/sourcetvfix.cpp protectcmds/takedamagefix.cpp
-OBJECTS += protectcmds/voicefix.cpp protectcmds/filterpacket.cpp
-OBJECTS += protectcmds/firegameeventfix.cpp protectcmds/ifix.cpp
-OBJECTS += protectcmds/namefix.cpp protectcmds/netmessages.cpp
-OBJECTS += protectcmds/voxelhashfix.cpp protectcmds/specgotofix.cpp
-OBJECTS += protectcmds/vacpatch.cpp
-OBJECTS += helpers/symbolmanager.cpp helpers/strtools.cpp helpers/sha256.cpp
+OBJECTS += helpers/symbolmanager.cpp helpers/strtools.cpp helpers/sha256.cpp protectcmds/ifix.cpp
 OBJECTS += helpers/inireader.cpp helpers/ini.c
 OBJECTS += updater/updater.cpp updater/http.cpp
 
@@ -57,67 +41,43 @@ CPP_OSX = clang
 
 override ENGSET = false
 
-ENGINE=original
-
 # Check for valid list of engines
-ifneq (,$(filter original original_ep2 orangebox orangeboxvalve css left4dead left4dead2 csgo,$(ENGINE)))
+ifneq (,$(filter css34 css,$(ENGINE)))
 	override ENGSET = true
 endif
 
-ifeq "$(ENGINE)" "original"
+ifeq "$(ENGINE)" "css34"
 	HL2SDK = $(HL2SDK_ORIG)
 	ENGINE_EXT = ext
-	CFLAGS += -DSOURCE_ENGINE=1
-endif
-ifeq "$(ENGINE)" "original_ep2"
-	HL2SDK = $(HL2SDK_ORIG)
-	ENGINE_EXT = ext.2.ep1
-	CFLAGS += -DSOURCE_ENGINE=1 -D_EP2
-endif
-ifeq "$(ENGINE)" "orangebox"
-	HL2SDK = $(HL2SDK_OB)
-	ENGINE_EXT = ext.2.ep2
-	CFLAGS += -DSOURCE_ENGINE=3
+	CFLAGS += -DENGINE_CSS34
+	OBJECTS += protectcmds/blockloadplugin.cpp protectcmds/blockcmds.cpp
+	OBJECTS += protectcmds/boneindexbynamefix.cpp protectcmds/gamestatsfix.cpp
+	OBJECTS += protectcmds/gameuifix.cpp protectcmds/hashingsteamid.cpp
+	OBJECTS += protectcmds/gamepacketfix.cpp protectcmds/observerloopfix.cpp
+	OBJECTS += protectcmds/osfix.cpp protectcmds/preconnecthook.cpp
+	OBJECTS += protectcmds/sourcetvfix.cpp protectcmds/takedamagefix.cpp
+	OBJECTS += protectcmds/voicefix.cpp protectcmds/filterpacket.cpp
+	OBJECTS += protectcmds/namefix.cpp protectcmds/netmessages.cpp
+	OBJECTS += protectcmds/voxelhashfix.cpp protectcmds/specgotofix.cpp
+	OBJECTS += protectcmds/vacpatch.cpp protectcmds/rcon_access.cpp
+	OBJECTS += protectcmds/firegameeventfix.cpp
 endif
 ifeq "$(ENGINE)" "css"
 	HL2SDK = $(HL2SDK_CSS)
 	ENGINE_EXT = ext.2.css
-	CFLAGS += -DSOURCE_ENGINE=12
-endif
-ifeq "$(ENGINE)" "orangeboxvalve"
-	HL2SDK = $(HL2SDK_OB_VALVE)
-	ENGINE_EXT = ext.2.ep2v
-	CFLAGS += -DSOURCE_ENGINE=6
-endif
-ifeq "$(ENGINE)" "left4dead"
-	HL2SDK = $(HL2SDK_L4D)
-	ENGINE_EXT = ext.2.l4d
-	CFLAGS += -DSOURCE_ENGINE=7
-endif
-ifeq "$(ENGINE)" "left4dead2"
-	HL2SDK = $(HL2SDK_L4D2)
-	ENGINE_EXT = ext.2.l4d2
-	CFLAGS += -DSOURCE_ENGINE=8
-endif
-ifeq "$(ENGINE)" "csgo"
-	HL2SDK = $(HL2SDK_CSGO)
-	ENGINE_EXT = ext.2.csgo
-	CFLAGS += -DSOURCE_ENGINE=11
+	CFLAGS += -DENGINE_CSS
+	OBJECTS += protectcmds/blockcmds.cpp protectcmds/voicefix.cpp protectcmds/hashingsteamid.cpp
+	OBJECTS += protectcmds/gamepacketfix.cpp protectcmds/filterpacket.cpp
 endif
 
 HL2PUB = $(HL2SDK)/public
 
-ifeq "$(ENGINE)" "original"
+ifeq "$(ENGINE)" "css34"
 	INCLUDE += -I$(HL2SDK)/public/dlls
 	METAMOD = $(MMSOURCE110)/core-legacy
 else
-	ifeq "$(ENGINE)" "original_ep2"
-		INCLUDE += -I$(HL2SDK)/public/dlls
-		METAMOD = $(MMSOURCE110)/core
-	else
-		INCLUDE += -I$(HL2SDK)/public/game/server
-		METAMOD = $(MMSOURCE110)/core
-	endif
+	INCLUDE += -I$(HL2SDK)/public/game/server
+	METAMOD = $(MMSOURCE110)/core
 endif
 
 OS := $(shell uname -s)
@@ -127,24 +87,20 @@ ifeq "$(OS)" "Darwin"
 	HL2LIB = $(HL2SDK)/lib/mac
 else
 	LIB_EXT = so
-	ifeq "$(ENGINE)" "original"
+	ifeq "$(ENGINE)" "css34"
 		HL2LIB = $(HL2SDK)/linux_sdk
 	else
-		ifeq "$(ENGINE)" "original_ep2"
-		HL2LIB = $(HL2SDK)/linux_sdk
-		else
-			HL2LIB = $(HL2SDK)/lib/linux
-		endif
+		HL2LIB = $(HL2SDK)/lib/linux
 	endif
 endif
 
-# if ENGINE is original or OB
-ifneq (,$(filter original original_ep2 orangebox,$(ENGINE)))
+#if ENGINE is original or OB
+ifneq (,$(filter css34,$(ENGINE)))
 	LIB_SUFFIX = _i486.$(LIB_EXT)
 else
 	LIB_PREFIX = lib
 	ifneq "$(OS)" "Darwin"
-		ifneq (,$(filter css orangeboxvalve left4dead2,$(ENGINE)))
+		ifneq (,$(filter css,$(ENGINE)))
 			LIB_SUFFIX = _srv.$(LIB_EXT)
 		else
 			LIB_SUFFIX = .$(LIB_EXT)
@@ -165,9 +121,6 @@ ifeq "$(USEMETA)" "true"
 	INCLUDE += -I. -I.. -Isdk -I$(HL2PUB) -I$(HL2PUB)/engine -I$(HL2PUB)/steam -I$(HL2PUB)/mathlib -I$(HL2PUB)/tier0 \
 	-I$(HL2PUB)/tier1 -I$(METAMOD) -I$(METAMOD)/sourcehook -I$(SMSDK)/public -I$(SMSDK)/public/extensions \
 	-I$(SMSDK)/public/sourcepawn
-	#CFLAGS += -DSE_EPISODEONE=1 -DSE_DARKMESSIAH=2 -DSE_ORANGEBOX=3 -DSE_BLOODYGOODTIME=4 -DSE_EYE=5 \
-	#	-DSE_ORANGEBOXVALVE=6 -DSE_LEFT4DEAD=7 -DSE_LEFT4DEAD2=8 -DSE_ALIENSWARM=9 \
-	#	-DSE_PORTAL2=10 -DSE_CSGO=11 -DSE_CSS=12
 endif
 
 LINK += -m32 -lm -ldl -lstdc++
@@ -262,7 +215,7 @@ all: check
 check:
 	if [ "$(USEMETA)" = "true" ] && [ "$(ENGSET)" = "false" ]; then \
 		echo "You must supply one of the following values for ENGINE:"; \
-		echo "csgo, left4dead2, left4dead, css, orangeboxvalve, orangebox, or original"; \
+		echo "css34 or css"; \
 		exit 1; \
 	fi
 
@@ -276,4 +229,5 @@ default: all
 
 clean: check
 	rm -rf $(BIN_DIR)
+	rm -rf *.so
 

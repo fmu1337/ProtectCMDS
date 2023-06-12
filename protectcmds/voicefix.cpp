@@ -8,8 +8,13 @@
 #include <tier1/bitbuf.h>
 
 #include "netmessages.h"
+#include "net_chan.hpp"
 
 #include "voicefix.h"
+
+#ifdef ENGINE_CSS
+#include <edict.h>
+#endif
 
 extern CGlobalVars* g_pGlobals;
  
@@ -28,42 +33,47 @@ int g_iMaxDetectVoiceExploitForKick = 30;
 
 float g_fLastTimeBlockVoice[MAXPLAYERS+1];
 
-/*DETOUR_DECL_MEMBER3(SendNetMsg, bool, INetMessage &, msg, bool, bReliable, char, str) {
-	static char sendMsgBuffer[4000];
-	bf_write bfMsg(sendMsgBuffer, sizeof(sendMsgBuffer));
-	bf_write *pStream = (bf_write *)((uintptr_t)(this) + 68);
-	if (!msg.WriteToBuffer(bfMsg) || pStream->GetNumBitsLeft() < bfMsg.GetNumBitsWritten()) return false;
-	
-	return msg.WriteToBuffer(*pStream);
-	//return DETOUR_MEMBER_CALL(SendNetMsg)(msg, bReliable, str);
-}*/
-
+#ifdef ENGINE_CSS34
 DETOUR_DECL_MEMBER2(SendNetMsg, bool, INetMessage &, msg, bool, bReliable) {
+#elif ENGINE_CSS
+DETOUR_DECL_MEMBER3(SendNetMsg, bool, INetMessage &, msg, bool, bReliable, bool, bVoice) {
+#endif
+	CNetChan *pNetChan = reinterpret_cast<CNetChan *>(this);
+
+	if (pNetChan->remote_address()->GetType() == NA_NULL) return true;
+	
 	static char sendMsgBuffer[4000];
 	bf_write bfMsg(sendMsgBuffer, sizeof(sendMsgBuffer));
-	bf_write *pStream = (bf_write *)((uintptr_t)(this) + 68);
-	if (msg.IsReliable() || bReliable) pStream = (bf_write *)((uintptr_t)(this) + 32);
+	
+	bf_write *pStream;
+	
+	if (msg.IsReliable() || bReliable) pStream = pNetChan->m_StreamReliable();
+	else pStream = pNetChan->m_StreamUnreliable();
+	
+	#ifdef ENGINE_CSS
+	if (bVoice) pStream = pNetChan->m_StreamVoice();
+	#endif
 	
 	if (!msg.WriteToBuffer(bfMsg) || pStream->GetNumBitsLeft() < bfMsg.GetNumBitsWritten()) return false;
 
-	return DETOUR_MEMBER_CALL(SendNetMsg)(msg, bReliable);
+	return msg.WriteToBuffer(*pStream);
 }
 
 DETOUR_DECL_MEMBER1(ProcessVoiceData, bool, CLC_VoiceData *, msg) {
 	CBaseClient *pClient = reinterpret_cast<CBaseClient*>(this);
 	int iClient = pClient->GetPlayerSlot() + 1;
-	//IGamePlayer *pClient = playerhelpers->GetGamePlayer(iClient);
 	
 	if (!pClient->IsConnected()) return false;
-	
-	int iLenMsg = msg->m_nLength >> 3;
 
+	#ifdef ENGINE_CSS34
+	int iLenMsg = msg->m_nLength >> 3;
 	//if (iLenMsg > 200) {
 	if (iLenMsg > 300) {
 		pClient->Disconnect("[ProtectCMDS] buffer overflow in net message");
 
 		return false;
 	}
+	#endif
 	
 	float fTime = g_pGlobals->curtime;
 	
@@ -102,7 +112,7 @@ void CVoiceFix::Load() {
 		/*
 			"CGameClient::ProcessVoiceData"
 			{
-				"library"		"engine"
+				"library"	"engine"
 				"linux"		"@_ZN11CGameClient16ProcessVoiceDataEP13CLC_VoiceData"
 			}
 		*/
@@ -115,11 +125,15 @@ void CVoiceFix::Load() {
 		/*
 			"CNetChan::SendNetMsg"
 			{
-				"library"		"engine"
+				"library"	"engine"
 				"linux"		"@_ZN8CNetChan10SendNetMsgER11INetMessageb"
 			}
 		*/
+			#ifdef ENGINE_CSS34
 			pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "_ZN8CNetChan10SendNetMsgER11INetMessageb");
+			#elif ENGINE_CSS
+			pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "_ZN8CNetChan10SendNetMsgER11INetMessagebb");
+			#endif
 			g_pSendNetMsgDetour = DETOUR_CREATE_MEMBER(SendNetMsg, pAddrFunc);
 			if (g_pSendNetMsgDetour) g_pSendNetMsgDetour->EnableDetour();
 			else g_pSM->LogError(myself, "Failed to setup CNetChan::SendNetMsg detour");

@@ -33,7 +33,9 @@
 
 CProtectCMDS g_ProtectCMDS;		/**< Global singleton for extension's main interface */
 SMEXT_LINK(&g_ProtectCMDS);
+#ifdef ENGINE_CSS34
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CProtectCMDS, IProtectCMDS, INTERFACE_PROTECTCMDS, g_ProtectCMDS);
+#endif
 
 #include <iostream>
 
@@ -43,7 +45,12 @@ using namespace std;
 using std::string;
 
 #include <tier1/interface.h>
+#ifdef ENGINE_CSS34
 #include <dlls/iplayerinfo.h>
+#elif ENGINE_CSS
+#include <edict.h>
+#include <game/server/iplayerinfo.h>
+#endif
 
 IPlayerInfoManager* g_pPlayerInfoManager = nullptr;
 CGlobalVars* g_pGlobals = nullptr;
@@ -259,6 +266,13 @@ void CProtectCMDS::SDK_OnAllLoaded() {
 		if (m_pVACPatch) m_pVACPatch->Load();
 		else g_pSM->LogError(myself, "VACPatch failed to load!");
 	}
+	
+	/*if (g_pSettings->GetInteger("RCONAccess", "rconaccess_enable", 1)) {
+		ConMsg(0, "rcon access load\n");
+		m_pRCONAccess = new CRCONAccess;
+		if (m_pRCONAccess) m_pRCONAccess->Load();
+		else g_pSM->LogError(myself, "RCON Access failed to load!");
+	}*/
 }
 
 void CProtectCMDS::SDK_OnUnload() {

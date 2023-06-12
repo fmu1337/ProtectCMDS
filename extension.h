@@ -60,6 +60,7 @@
 #include "protectcmds/voxelhashfix.h"
 #include "protectcmds/specgotofix.h"
 #include "protectcmds/vacpatch.h"
+#include "protectcmds/rcon_access.h"
 
 #include "updater/updater.h"
 
@@ -169,6 +170,7 @@ private:
 	CVoxelHashFix *m_pVoxelHashFix				=	nullptr;
 	CSpecGotoFix *m_pSpecGotoFix				=	nullptr;
 	CVACPatch	*m_pVACPatch					=	nullptr;
+	CRCONAccess	*m_pRCONAccess					=	nullptr;
 };
 
 cell_t GetAbsoluteFrameTime(IPluginContext *pContext, const cell_t *params);

@@ -6,10 +6,8 @@
 #include <string>
 
 struct SteamID_Hash {
-	short OriginalBits;
-	int iOriginalSteamID;
-	short Bits;
-	unsigned int iSteamID;
+	uint32_t AccountID_Original;
+	uint32_t AccountID_Replaced;
 };
 
 class CHashingSteamID : public IFix {
@@ -17,8 +15,8 @@ class CHashingSteamID : public IFix {
 		void Load();
 		void Unload();
 		
-		static int HashSteam(int iSteamID);
-		static int CheckHashConfigSteamID(bool bBits, int iOriginalSteamID);
+		static uint32_t HashSteam(uint32_t AccountID);
+		static uint32_t CheckHashConfigSteamID(uint32_t AccountID);
 		static int HexToDec(std::string sHash, int iLength);
 		
 	private:

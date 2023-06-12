@@ -1,26 +1,37 @@
-#define MAXPLAYERS 65
-
+/* C++ headers */
 #include <fstream>
 #include <algorithm>
 
+/* include this headers */
+#include "blockcmds.h"
+
+/* ProtectCMDS headers */
 #include <helpers/util.h>
 #include <CDetour/detours.h>
 #include <helpers/symbolmanager.h>
 #include <helpers/strtools.h>
 
+/* SourceMod headers */
 #include <sh_list.h>
 
+/* SRC SDK headers */
 #include <iclient.h>
 #include <igameevents.h>
 
-#include "blockcmds.h"
+#ifdef ENGINE_CSS
+#include <edict.h>
+#endif
 
 using namespace std;
 
-class CBaseClient : public IGameEventListener2, public IClient {};
+/* DEFINES */
+#define MAXPLAYERS 65
 
+/* Externs */
 extern char g_cPrefix[];
 extern CGlobalVars* g_pGlobals;
+
+class CBaseClient : public IGameEventListener2, public IClient {};
 
 CDetour *g_pExecuteStringCommandDetour = nullptr;
 IForward *g_pExecuteStringCommand = nullptr;
@@ -31,8 +42,8 @@ int g_iUserCmds[MAXPLAYERS+1];
 
 SourceHook::List<BlockCommands *> m_pBlockListCmds;
 
+#ifdef ENGINE_CSS34
 #define NUM_BAD_CMDS 61
-
 char g_sBlockBadCmds[NUM_BAD_CMDS][100] = {
 	"ai_test_los", "changelevel", "cl_fullupdate", "dbghist_addline", "dbghist_dump", "drawcross", "drawline",
 	"dump_entity_sizes", "dump_globals", "dump_panels", "dump_terrain", "dumpcountedstrings", "dumpentityfactories",
@@ -46,6 +57,7 @@ char g_sBlockBadCmds[NUM_BAD_CMDS][100] = {
 	"npc_destroy", "npc_freeze", "npc_conditions", "npc_combat", "npc_focus", "npc_enemies", "npc_bipass",
 	"npc_tasks", "npc_teleport", "npc_go"
 };
+#endif
 
 DETOUR_DECL_MEMBER1(ExecuteStringCommand, bool, const char *, pCommand) {
 	CBaseClient *pClient = reinterpret_cast<CBaseClient*>(this);
@@ -99,8 +111,10 @@ void CBlockCmds::OnMapStart() {
 bool CBlockCmds::IsCommandBlock(char *pCmd) {
 	TrimString(pCmd);
 
+	#ifdef ENGINE_CSS34
 	for (int i = 0; i < NUM_BAD_CMDS; i++)
 		if (StrEqual(pCmd, g_sBlockBadCmds[i], true)) return true;
+	#endif
 	
 	SourceHook::List<BlockCommands *>::iterator iter;
 	
@@ -194,7 +208,7 @@ void CBlockCmds::Load() {
 			"CGameClient::ExecuteStringCommand"
 			{
 				"library"    "engine"
-				"linux"        "@_ZN11CGameClient20ExecuteStringCommandEPKc"
+				"linux"      "@_ZN11CGameClient20ExecuteStringCommandEPKc"
 			}
 		*/
 		void *pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "_ZN11CGameClient20ExecuteStringCommandEPKc");

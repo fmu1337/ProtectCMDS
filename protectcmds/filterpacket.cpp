@@ -10,31 +10,43 @@
 #include <icvar.h>
 #include <tier0/vcrmode.h>
 
+#ifdef ENGINE_CSS
+#include <edict.h>
+#endif
+
 using namespace std;
 
+#ifdef ENGINE_CSS34
 #define NORMAL_SEQ_PACKET "\x00"
+#endif
+
 #define GAME_PACKET_TIMEOUT 2
 #define GAME_PACKET_CHECK_TIME 1
 #define MAX_GAME_PACKETS_PER_CHECK_TIME 200
 
 extern CGlobalVars* g_pGlobals;
 
+#ifdef ENGINE_CSS34
 CDetour *g_pFilter_ShouldDiscardDetour = nullptr;
 CDetour *g_pProcessConnectionlessPacketDetour = nullptr;
-CDetour *g_pRecvFromDetour = nullptr;
+#endif
+
 CDetour *g_pProcessPacketDetour = nullptr;
 
+#ifdef ENGINE_CSS34
 CUtlVector < ipfilter_t > *g_pIPFilters = nullptr;
 ConVar *pSV_FilterBan = nullptr;
+void (*Filter_SendBan)(const netadr_t & addr) = nullptr;
+#endif
 
 #define MAX_PACKET_LIST 128
 PacketCount g_PacketList[MAX_PACKET_LIST];
 
-void (*Filter_SendBan)(const netadr_t & addr) = nullptr;
 
 bool g_bRecvFromHooked = false;
 int (*g_pRealRecvFrom) (int , char *, int , int , struct sockaddr *, int *);
 
+#ifdef ENGINE_CSS34
 DETOUR_DECL_STATIC1(Filter_ShouldDiscardHook, bool, const netadr_t &, adr) {
 	if (g_pIPFilters->Count() > 65) return false;
 	
@@ -50,17 +62,7 @@ DETOUR_DECL_MEMBER1(ProcessConnectionlessPacketHook, bool, netpacket_t *, packet
 	
 	return DETOUR_MEMBER_CALL(ProcessConnectionlessPacketHook)(packet);
 }
-
-/*DETOUR_DECL_STATIC6(RecvFromHook, int, int, iSock, char *, pBuf, int, iLen, int, iFlags, void *, from, void *, fromlen) {
-	int iRet = DETOUR_STATIC_CALL(RecvFromHook)(iSock, pBuf, iLen, iFlags, from, fromlen);
-	
-	if (!iRet) {
-		iRet = 1;
-		pBuf[0] = '0';
-	}
-	
-	return iRet;
-}*/
+#endif
 
 int RecvFromHook(int s, char *buf, int len, int flags, struct sockaddr *from, int *fromlen) {
 	int iRet = g_pRealRecvFrom(s, buf, len, flags, from, fromlen);
@@ -74,14 +76,16 @@ int RecvFromHook(int s, char *buf, int len, int flags, struct sockaddr *from, in
 }
 
 DETOUR_DECL_MEMBER2(ProcessPacketHook, void, netpacket_t *, packet, bool, bHasHeader) {
+	#ifdef ENGINE_CSS34
 	if (memcmp(packet->data+3, NORMAL_SEQ_PACKET, 1)) return;
-
-	if (IsPacketsFlood(packet->from.GetIP())) return;
+	#endif
+	
+	if (IsPacketsFlood(packet->from.GetIP(), (char *)packet->from.ToString())) return;
 	
 	return DETOUR_MEMBER_CALL(ProcessPacketHook)(packet, bHasHeader);
 }
 
-bool IsPacketsFlood(unsigned int ip) {
+bool IsPacketsFlood(unsigned int ip, char *pIP) {
 	float fTime = g_pGlobals->curtime;
 	float fTimedOut = fTime - (GAME_PACKET_TIMEOUT - GAME_PACKET_CHECK_TIME);
 	
@@ -124,15 +128,15 @@ bool IsPacketsFlood(unsigned int ip) {
 }
 
 void CFilterPacket::Load() {
+	#ifdef ENGINE_CSS34
 	if (!g_pFilter_ShouldDiscardDetour) {
 		/*
 			"Filter_ShouldDiscard"
 			{
-				"library"		"engine"
+				"library"	"engine"
 				"linux"		"@_Z20Filter_ShouldDiscardRK8netadr_s"
 			}
 		*/
-		
 		g_pIPFilters = (CUtlVector < ipfilter_t > *)g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "g_IPFilters");
 		if (!g_pIPFilters) {
 			g_pSM->LogError(myself, "Failed to get IPFilters offset");
@@ -153,7 +157,7 @@ void CFilterPacket::Load() {
 		/*
 			"CBaseServer::ProcessConnectionlessPacket"
 			{
-				"library"		"engine"
+				"library"	"engine"
 				"linux"		"@_ZN11CBaseServer27ProcessConnectionlessPacketEP11netpacket_s"
 			}
 		*/
@@ -162,12 +166,7 @@ void CFilterPacket::Load() {
 		if (g_pProcessConnectionlessPacketDetour) g_pProcessConnectionlessPacketDetour->EnableDetour();
 		else g_pSM->LogError(myself, "Failed to setup CBaseServer::ProcessConnectionlessPacket detour");
 	}
-	
-	/*if (!g_pRecvFromDetour) {
-		g_pRecvFromDetour = DETOUR_CREATE_STATIC(RecvFromHook, (void *)recvfrom);
-		if (g_pRecvFromDetour) g_pRecvFromDetour->EnableDetour();
-		else g_pSM->LogError(myself, "Failed to setup recvfrom detour");
-	}*/
+	#endif
 	
 	if (!g_bRecvFromHooked) {
 		g_pRealRecvFrom = g_pVCR->Hook_recvfrom;
@@ -184,6 +183,7 @@ void CFilterPacket::Load() {
 }
 
 void CFilterPacket::Unload() {
+	#ifdef ENGINE_CSS34
 	if (g_pFilter_ShouldDiscardDetour) {
 		g_pFilter_ShouldDiscardDetour->Destroy();
 		g_pFilter_ShouldDiscardDetour = nullptr;
@@ -193,12 +193,8 @@ void CFilterPacket::Unload() {
 		g_pProcessConnectionlessPacketDetour->Destroy();
 		g_pProcessConnectionlessPacketDetour = nullptr;
 	}
-	
-	/*if (g_pRecvFromDetour) {
-		g_pRecvFromDetour->Destroy();
-		g_pRecvFromDetour = nullptr;
-	}*/
-	
+	#endif
+
 	if (g_bRecvFromHooked) {
 		g_pVCR->Hook_recvfrom = g_pRealRecvFrom;
 		g_bRecvFromHooked = false;		

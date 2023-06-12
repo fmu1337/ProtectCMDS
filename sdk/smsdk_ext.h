@@ -99,7 +99,9 @@
 #include <ISmmPlugin.h>
 #endif
 
+#ifdef ENGINE_CSS34
 #include <eiface.h>
+#endif
 
 using namespace SourceMod;
 using namespace SourcePawn;

@@ -123,7 +123,11 @@ bool CPCMDSUpdater::WriteExtension(int iLibrary, string sFile) {
 
 string CPCMDSUpdater::GenerateUrl(int iLibrary, string sHash) {
 	string sUrl = m_sUrl;
-	sUrl.append((char *)"/index.php?&hash=");
+	#ifdef ENGINE_CSS34
+	sUrl.append((char *)"/index.php?engine=css34&hash=");
+	#elif ENGINE_CSS
+	sUrl.append((char *)"/index.php?engine=css&hash=");
+	#endif
 	sUrl.append(sHash);
 	if (m_bExperimental) sUrl += "&experimental=yes";
 	
@@ -226,6 +230,7 @@ bool CPCMDSUpdater::IsLibraryLoaded(const char *pLibraryName) {
 	void *pHandle = dlopen(pLibraryName, RTLD_NOW | RTLD_NOLOAD);
 	
 	if (pHandle) {
+		// close - ??
 		dlclose(pHandle);
 		
 		return true;
