@@ -60,9 +60,9 @@ CGlobalVars* g_pGlobals = nullptr;
 #include "CDetour/detours.h"
 #include "helpers/util.h"
 
-#define ENGINE_MAX 3
+#define ENGINE_MAX 4
 const char sEngineName[ENGINE_MAX][19] = {
-	"bin/engine_i686.so", "bin/engine_i486.so", "bin/engine_amd.so"
+	"bin/engine_i686.so", "bin/engine_i486.so", "bin/engine_amd.so", "bin/engine_srv.so"
 };
 
 bool CProtectCMDS::GetEngineNameLoaded(char *pEngine, int iMaxLength) {
@@ -92,10 +92,16 @@ bool CProtectCMDS::LoadLibraries() {
 	}
 	
 	if (!g_pSymbolManager->AddModule(ESymbolModule::ENGINE, sEngine)) return false;
+	
+	#ifdef ENGINE_CSS34	
 	if (!g_pSymbolManager->AddModule(ESymbolModule::SERVER, "cstrike/bin/server_i486.so")) return false;
 	if (!g_pSymbolManager->AddModule(ESymbolModule::VALVE_API, "bin/valve_api.so")) return false;
-	
 	Sys_LoadInterface("cstrike/bin/server_i486.so", INTERFACEVERSION_PLAYERINFOMANAGER, nullptr, (void**)&g_pPlayerInfoManager);
+	#else
+	if (!g_pSymbolManager->AddModule(ESymbolModule::SERVER, "cstrike/bin/server_srv.so")) return false;
+	Sys_LoadInterface("cstrike/bin/server_srv.so", INTERFACEVERSION_PLAYERINFOMANAGER, nullptr, (void**)&g_pPlayerInfoManager);
+	#endif
+
 	if (!g_pPlayerInfoManager) {
 		g_pSM->LogError(myself, "Сould not find interface: %s", INTERFACEVERSION_PLAYERINFOMANAGER);
 		
@@ -180,11 +186,7 @@ bool CProtectCMDS::SDK_OnLoad(char* error, size_t maxlength, bool late) {
 	return true;
 }
 
-void CProtectCMDS::SDK_OnAllLoaded() {
-	m_pBlockLoadPluginFix = new CBlockLoadPluginFix;
-	if (m_pBlockLoadPluginFix) m_pBlockLoadPluginFix->Load();
-	else g_pSM->LogError(myself, "Block bad load plugin failed to load!");
-	
+void CProtectCMDS::SDK_OnAllLoaded() {	
 	if (g_pSettings->GetInteger("BlockCmds", "blockcmds_enable", 1)) {
 		m_pBlockCmds = new CBlockCmds;
 		if (m_pBlockCmds) {
@@ -193,6 +195,31 @@ void CProtectCMDS::SDK_OnAllLoaded() {
 		}
 		else g_pSM->LogError(myself, "BlockCmds failed to load!");
 	}
+	
+	if (g_pSettings->GetInteger("SteamIDHashing", "steamidhashing_enable", 1)) {
+		m_pHashingSteamID = new CHashingSteamID;
+		if (m_pHashingSteamID) m_pHashingSteamID->Load();
+		else g_pSM->LogError(myself, "SteamID Hashing failed to load!");
+	}
+	
+	if (g_pSettings->GetInteger("GamePacketFix", "gamepacketfix_enable", 1)) {
+		m_pGamePacketFix = new CGamePacketFix;
+		if (m_pGamePacketFix) m_pGamePacketFix->Load();
+		else g_pSM->LogError(myself, "GamePacketFix failed to load!");
+	}
+	
+	m_pPreConnectHook = new CPreConnectHook;
+	if (m_pPreConnectHook) m_pPreConnectHook->Load();
+	else g_pSM->LogError(myself, "PreConnectHook failed to load!");
+	
+	m_pVoiceFix = new CVoiceFix;
+	if (m_pVoiceFix) m_pVoiceFix->Load();
+	else g_pSM->LogError(myself, "VoiceFix failed to load!");
+	
+	#ifdef ENGINE_CSS34
+	m_pBlockLoadPluginFix = new CBlockLoadPluginFix;
+	if (m_pBlockLoadPluginFix) m_pBlockLoadPluginFix->Load();
+	else g_pSM->LogError(myself, "Block bad load plugin failed to load!");
 	
 	m_pBoneIndexByNameFix = new CBoneIndexByNameFix;
 	if (m_pBoneIndexByNameFix) m_pBoneIndexByNameFix->Load();
@@ -207,18 +234,6 @@ void CProtectCMDS::SDK_OnAllLoaded() {
 	m_pGameUIFix = new CGameUIFix;
 	if (m_pGameUIFix) m_pGameUIFix->Load();
 	
-	if (g_pSettings->GetInteger("SteamIDHashing", "steamidhashing_enable", 1)) {
-		m_pHashingSteamID = new CHashingSteamID;
-		if (m_pHashingSteamID) m_pHashingSteamID->Load();
-		else g_pSM->LogError(myself, "SteamID Hashing failed to load!");
-	}
-	
-	if (g_pSettings->GetInteger("GamePacketFix", "gamepacketfix_enable", 1)) {
-		m_pGamePacketFix = new CGamePacketFix;
-		if (m_pGamePacketFix) m_pGamePacketFix->Load();
-		else g_pSM->LogError(myself, "GamePacketFix failed to load!");
-	}
-	
 	m_pObServerLoopFix = new CObServerLoopFix;
 	if (m_pObServerLoopFix) m_pObServerLoopFix->Load();
 	else g_pSM->LogError(myself, "ObServerLiipFix failed to load!");
@@ -229,10 +244,6 @@ void CProtectCMDS::SDK_OnAllLoaded() {
 		else g_pSM->LogError(myself, "OSFix failed to load!");
 	}
 	
-	m_pPreConnectHook = new CPreConnectHook;
-	if (m_pPreConnectHook) m_pPreConnectHook->Load();
-	else g_pSM->LogError(myself, "PreConnectHook failed to load!");
-	
 	m_pSourceTVFix = new CSourceTVFix;
 	if (m_pSourceTVFix) m_pSourceTVFix->Load();
 	else g_pSM->LogError(myself, "SourceTVFix failed to load!");
@@ -240,10 +251,6 @@ void CProtectCMDS::SDK_OnAllLoaded() {
 	m_pTakeDamageFix = new CTakeDamageFix;
 	if (m_pTakeDamageFix) m_pTakeDamageFix->Load();
 	else g_pSM->LogError(myself, "TakeDamageFix failed to load!");
-	
-	m_pVoiceFix = new CVoiceFix;
-	if (m_pVoiceFix) m_pVoiceFix->Load();
-	else g_pSM->LogError(myself, "VoiceFix failed to load!");
 	
 	m_pFireGameEventFix = new CFireGameEventFix;
 	if (m_pFireGameEventFix) m_pFireGameEventFix->Load();
@@ -273,6 +280,7 @@ void CProtectCMDS::SDK_OnAllLoaded() {
 		if (m_pRCONAccess) m_pRCONAccess->Load();
 		else g_pSM->LogError(myself, "RCON Access failed to load!");
 	}*/
+	#endif
 }
 
 void CProtectCMDS::SDK_OnUnload() {

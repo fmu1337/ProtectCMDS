@@ -1,3 +1,6 @@
+#ifndef _SYMBOLMANAGER_H
+#define _SYMBOLMANAGER_H
+
 enum ESymbolModule {
 	ENGINE = 0,
 	SERVER,
@@ -19,3 +22,5 @@ class CSymbolManager {
 };
 
 extern CSymbolManager* g_pSymbolManager;
+
+#endif
