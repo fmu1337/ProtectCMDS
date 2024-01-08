@@ -138,6 +138,10 @@ DETOUR_DECL_MEMBER1(SetSteamID, void *, CSteamID &, inputSteamID) {
 	
 	ConMsg(0, "%s [STEAM_0:%u:%u] changed to [STEAM_0:%u:%u]\n", g_cPrefix, inputAccountID & 1, inputAccountID >> 1, hashedAccountID & 1, hashedAccountID >> 1);
 	
+	#ifdef ENGINE_CSS34
+	inputSteamID.SetAccountID(hashedAccountID);
+	#endif
+	
 	return DETOUR_MEMBER_CALL(SetSteamID)(inputSteamID);
 }
 

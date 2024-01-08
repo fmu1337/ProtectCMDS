@@ -80,7 +80,7 @@ DETOUR_DECL_MEMBER2(ProcessPacketHook, void, netpacket_t *, packet, bool, bHasHe
 	if (memcmp(packet->data+3, NORMAL_SEQ_PACKET, 1)) return;
 	#endif
 	
-	if (IsPacketsFlood(packet->from.GetIP(), (char *)packet->from.ToString())) return;
+	//if (IsPacketsFlood(packet->from.GetIP(), (char *)packet->from.ToString())) return;
 	
 	return DETOUR_MEMBER_CALL(ProcessPacketHook)(packet, bHasHeader);
 }

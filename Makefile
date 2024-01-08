@@ -60,7 +60,7 @@ ifeq "$(ENGINE)" "css34"
 	OBJECTS += protectcmds/namefix.cpp protectcmds/netmessages.cpp
 	OBJECTS += protectcmds/voxelhashfix.cpp protectcmds/specgotofix.cpp
 	OBJECTS += protectcmds/vacpatch.cpp protectcmds/rcon_access.cpp
-	OBJECTS += protectcmds/firegameeventfix.cpp
+	OBJECTS += protectcmds/firegameeventfix.cpp protectcmds/helpers/vtfvalidator.cpp
 endif
 ifeq "$(ENGINE)" "css"
 	HL2SDK = $(HL2SDK_CSS)
@@ -204,7 +204,7 @@ all: check
 	mkdir -p $(BIN_DIR)/sdk
 	mkdir -p $(BIN_DIR)/CDetour
 	mkdir -p $(BIN_DIR)/helpers
-	mkdir -p $(BIN_DIR)/protectcmds
+	mkdir -p $(BIN_DIR)/protectcmds/helpers
 	mkdir -p $(BIN_DIR)/updater
 	if [ "$(USEMETA)" = "true" ]; then \
 		ln -sf $(HL2LIB)/$(LIB_PREFIX)vstdlib$(LIB_SUFFIX); \

@@ -14,12 +14,27 @@
 #include <helpers/symbolmanager.h>
 #include <helpers/strtools.h>
 #include <helpers/util.h>
+#include "helpers/ratelimit.h"
+
+#ifdef ENGINE_CSS34
+#include "helpers/vtfvalidator.h"
+#endif
+
+#ifdef ENGINE_CSS
+#include <edict.h>
+//#include <game/server/iplayerinfo.h>
+#endif
 
 #include <tier1/bitbuf.h>
 #include <inetmessage.h>
 #include <inetmsghandler.h>
 #include <iclient.h>
 #include <netadr.h>
+#include <tier0/dbg.h>
+#include <tier1/convar.h>
+#include <tier0/memalloc.h>
+#include <filesystem.h>
+#include <tier1/interface.h>
 #include "net_chan.hpp"
 
 #include "gamepacketfix.h"
@@ -27,8 +42,15 @@
 using namespace std;
 
 extern char g_cPrefix[];
+extern CGlobalVars* g_pGlobals;
  
 CDetour *g_pProcessMessagesDetour = nullptr;
+CDetour *g_pCheckReceivingListDetour = nullptr;
+CDetour *g_pSetupDetour = nullptr;
+
+ConVar *net_showfragments = nullptr;
+ConVar *sv_allowupload = nullptr;
+IFileSystem* g_pFileSystem = nullptr;
 
 #ifdef ENGINE_CSS34
 #define WHITE_PATH_MAX 5
@@ -52,10 +74,22 @@ char WhiteExt[WHITE_EXT_MAX][4] = {
 	"vvd", "wav", "mp3", "vtf"
 };
 
+CRateLimit g_RateLimiter[65];
+CRateLimit g_UncompressLimiter[65];
+
 /*Start Function Pointer*/
 INetMessage *(__cdecl* FindMessage)(void *CNetChanThis, int cmd);
 void (__cdecl* UpdateMessageStats)(void *CNetChanThis, int msgroup, int bits);
 bool (__cdecl* IsOverflowed)(void *CNetChanThis);
+typedef int(__cdecl* BZ2_bzBuffToBuffDecompressFn)(char*         dest, 
+      unsigned int* destLen,
+      char*         source, 
+      unsigned int  sourceLen,
+      int           small, 
+      int           verbosity 
+);
+BZ2_bzBuffToBuffDecompressFn BZ2_bzBuffToBuffDecompress;
+
 /*End Function Pointer*/
 
 bool IsValidFileForTransfer(const char *pszFilename) {
@@ -168,44 +202,47 @@ bool ProcessControlMessage( void *CNetChanThis, int cmd, bf_read &buf) {
 	return false;
 }
 
-DETOUR_DECL_MEMBER1(ProcessMessages, bool, bf_read &, buf) {
+bool ImplProcessMessages(void * NetChan, bf_read &buf) {
 	int startbit = buf.GetNumBitsRead();
 	while ( true ) {
 		if ( buf.IsOverflowed() ) {
-			INetChannelHandler *m_MessageHandler = (reinterpret_cast<CNetChan *>(this))->m_MessageHandler();	
-			//netadr_s remote_address = *(netadr_s *)( (uintptr_t)this + 116 );
-			//char sCmd[256];
-			//UTIL_Format(sCmd, sizeof(sCmd), "addip 5 %s\n", remote_address.ToString(true));
+			INetChannelHandler *m_MessageHandler = (reinterpret_cast<CNetChan *>(NetChan))->m_MessageHandler();	
+			//netadr_s remote_address = *(netadr_s *)( (uintptr_t)NetChan + 116 );
 			
 			if (m_MessageHandler) m_MessageHandler->ConnectionCrashed( "[ProtectCMDS] Buffer overflow in net message" );
-			
-			//gamehelpers->ServerCommand(sCmd);
 			
 			return false;
 		}	
 
 		if ( buf.GetNumBitsLeft() < NETMSG_TYPE_BITS ) break;
 		
+		INetChannelHandler *m_MessageHandler = (reinterpret_cast<CNetChan *>(NetChan))->m_MessageHandler();
+		
 		unsigned char cmd = buf.ReadUBitLong( NETMSG_TYPE_BITS );
+		
+		if (cmd != net_NOP)
+		{
+			int m_nClientSlot = (int)(*((int*)m_MessageHandler + 3));
+			if (!g_RateLimiter[m_nClientSlot].Check()) return false;
+		}
+		
 		if ( cmd <= net_File ) {
-			if ( !ProcessControlMessage( this, cmd, buf ) ) return false; // disconnect or error
+			if ( !ProcessControlMessage( NetChan, cmd, buf ) ) return false; // disconnect or error
 
 			continue;
 		}
 
-		INetMessage	* netmsg = FindMessage( this, cmd );
+		INetMessage	* netmsg = FindMessage( NetChan, cmd );
 		if ( netmsg ) {
 			const char *msgname = netmsg->GetName();
 			
 			int startbit = buf.GetNumBitsRead();
 
 			if ( !netmsg->ReadFromBuffer( buf ) ) {
-				netadr_s *remote_address = (reinterpret_cast<CNetChan *>(this))->remote_address();
+				netadr_s *remote_address = (reinterpret_cast<CNetChan *>(NetChan))->remote_address();
 				char sCmd[256];
 				UTIL_Format(sCmd, sizeof(sCmd), "addip 5 %s\n", remote_address->ToString(true));
 				//cout << "Netchannel: failed reading message " << msgname << " from " << remote_address.ToString() << endl;
-				
-				INetChannelHandler *m_MessageHandler = (reinterpret_cast<CNetChan *>(this))->m_MessageHandler();
 				
 				if (m_MessageHandler) m_MessageHandler->ConnectionCrashed( "[ProtectCMDS] Buffer overflow in net message" );
 				
@@ -214,21 +251,21 @@ DETOUR_DECL_MEMBER1(ProcessMessages, bool, bf_read &, buf) {
 				return false;
 			}
 
-			UpdateMessageStats( this, netmsg->GetGroup(), buf.GetNumBitsRead() - startbit );
+			UpdateMessageStats( NetChan, netmsg->GetGroup(), buf.GetNumBitsRead() - startbit );
 			
-			bool &m_bProcessingMessages = *(bool *)((uintptr_t)this + 4);
+			bool &m_bProcessingMessages = *(bool *)((uintptr_t)NetChan + 4);
 			m_bProcessingMessages = true;
 			bool bRet = netmsg->Process();
 			m_bProcessingMessages = false;
 
 
-			if ( (reinterpret_cast<CNetChan *>(this))->m_bShouldDelete() ) {
-				delete this;
+			if ( (reinterpret_cast<CNetChan *>(NetChan))->m_bShouldDelete() ) {
+				g_pMemAlloc->Free(NetChan);
 				return false;
 			}
 			
 			#ifdef ENGINE_CSS
-			bool &m_bClearedDuringProcessing = *(bool *)((uintptr_t)this + 5);
+			bool &m_bClearedDuringProcessing = *(bool *)((uintptr_t)NetChan + 5);
 			if ( m_bClearedDuringProcessing ) {
 				// Clear() was called during processing, our buffer is no longer valid
 				m_bClearedDuringProcessing = false;
@@ -240,7 +277,6 @@ DETOUR_DECL_MEMBER1(ProcessMessages, bool, bf_read &, buf) {
 				#ifdef ENGINE_CSS
 				if (netmsg->GetType() == 10) return false;
 
-				INetChannelHandler *m_MessageHandler = (reinterpret_cast<CNetChan *>(this))->m_MessageHandler();
 				if (m_MessageHandler) m_MessageHandler->ConnectionCrashed( "[ProtectCMDS] Buffer overflow in net message" );
 				#endif
 				
@@ -248,23 +284,168 @@ DETOUR_DECL_MEMBER1(ProcessMessages, bool, bf_read &, buf) {
 				return false;
 			}
 
-			if ( IsOverflowed(this) ) return false;
+			if ( IsOverflowed(NetChan) ) return false;
 		}
 		else {
-			netadr_s *remote_address = (reinterpret_cast<CNetChan *>(this))->remote_address();
-			char sCmd[256];
-			UTIL_Format(sCmd, sizeof(sCmd), "addip 5 %s\n", remote_address->ToString(true));
+			//netadr_s *remote_address = (reinterpret_cast<CNetChan *>(NetChan))->remote_address();
+			//char sCmd[256];
+			//UTIL_Format(sCmd, sizeof(sCmd), "addip 5 %s\n", remote_address->ToString(true));
 			//cout << "Netchannel: unknown net message (" << cmd << ") from " << remote_address.ToString() << endl;
 			
-			INetChannelHandler *m_MessageHandler = (reinterpret_cast<CNetChan *>(this))->m_MessageHandler();
 			if (m_MessageHandler) m_MessageHandler->ConnectionCrashed( "[ProtectCMDS] Buffer overflow in net message" );
 			
-			gamehelpers->ServerCommand(sCmd);
+			//gamehelpers->ServerCommand(sCmd);
 			
 			return false;
 		}
 	}
 	
+	return true;
+}
+
+DETOUR_DECL_MEMBER1(ProcessMessages, bool, bf_read &, buf) {
+	return ImplProcessMessages(this, buf);
+}
+
+DETOUR_DECL_MEMBER4(Setup, void, int, sock, void *, adr, const char *, name, INetChannelHandler *, handler) {
+	int m_nClientSlot = (int)(*((int*)handler + 3));
+	
+	static float fTickRate = 1.0 / g_pGlobals->interval_per_tick;
+	static int iLimit = int(fTickRate * 5.0);
+	
+	g_RateLimiter[m_nClientSlot].SetLimit(iLimit, 1.0, "NetChan");
+	
+	g_UncompressLimiter[m_nClientSlot].SetLimit(256000, 1.0, "Compressed fragments");
+	
+	return DETOUR_MEMBER_CALL(Setup)(sock, adr, name, handler);
+}
+
+void UncompressFragments( dataFragments_t *data )
+{
+	char *newbuffer = (char*)g_pMemAlloc->Alloc((data->nUncompressedSize + 3) & 0xFFFFFFFC);
+	unsigned int uncompressedSize = data->nUncompressedSize;
+
+	BZ2_bzBuffToBuffDecompress( newbuffer, &uncompressedSize, data->buffer, data->bytes, 1, 0 );
+
+	if(data->buffer)
+	{
+		g_pMemAlloc->Free(data->buffer);
+	}
+	data->buffer = newbuffer;
+	data->bytes = uncompressedSize;
+	data->isCompressed = false;
+}
+
+DETOUR_DECL_MEMBER1(CheckReceivingList, bool, int, nList) {
+	dataFragments_t *data = (dataFragments_t *)((char *)this + 304 * nList);
+	
+	if (data->buffer == NULL)
+		return true;
+
+	if (data->ackedFragments < data->numFragments)
+		return true;
+
+	if (data->ackedFragments > data->numFragments)
+	{
+		Msg("Receiving failed: too many fragments %i/%i\n", data->ackedFragments, data->numFragments);
+		return false;
+	}
+
+	if (net_showfragments->GetBool())
+	{
+		Msg("Receiving complete: %i fragments, %i bytes\n", data->numFragments, data->bytes);
+	}
+
+	if (data->isCompressed)
+	{
+		INetChannelHandler *m_MessageHandler = (reinterpret_cast<CNetChan *>(this))->m_MessageHandler();	
+		
+		int m_nClientSlot = (int)(*((int*)m_MessageHandler + 3));
+		
+		if (!g_UncompressLimiter[m_nClientSlot].Check(data->nUncompressedSize)) return false;
+		
+		UncompressFragments(data);
+	}
+
+	if (!data->filename[0])
+	{
+		bf_read buffer(data->buffer, data->bytes);
+		if (!ImplProcessMessages((void *)this, buffer))
+		{
+			return false;
+		}
+	}
+	else
+	{
+		if (sv_allowupload->GetBool())
+		{
+			if (IsValidFileForTransfer(data->filename))
+			{
+				#ifdef ENGINE_CSS34
+				CVTFValidator VTFValidator;
+				if ( !VTFValidator.IsValid(data->buffer, data->bytes) )
+				{
+					if ( VTFValidator.IsShouldLog() )
+					{
+						Msg("VTFValidator: invalid spray from %s (%s)\n", ((reinterpret_cast<CNetChan *>(this))->remote_address())->ToString(), VTFValidator.GetLastError());
+					}
+
+					delete [] data->buffer; 
+					data->buffer = NULL;
+
+					return true;
+				}
+				#endif
+				
+				if (!g_pFileSystem->FileExists(data->filename))
+				{
+					char szParentDir[ MAX_PATH ];
+					if ( !V_ExtractFilePath( data->filename, szParentDir, sizeof(szParentDir) ) )
+					{
+						szParentDir[0] = '\0';
+					}
+					g_pFileSystem->CreateDirHierarchy( szParentDir );
+
+					data->file = g_pFileSystem->Open(data->filename, "wb");
+					if (FILESYSTEM_INVALID_HANDLE != data->file)
+					{
+						g_pFileSystem->Write(data->buffer, data->bytes, data->file);
+						g_pFileSystem->Close(data->file);
+						if (net_showfragments->GetInt() == 2)
+						{
+							DevMsg("FileReceived: %s, %i bytes (ID %i)\n", data->filename, data->bytes, data->transferID);
+						}
+						INetChannelHandler *m_MessageHandler = (reinterpret_cast<CNetChan *>(this))->m_MessageHandler();
+						
+						#ifdef ENGINE_CSS34
+						m_MessageHandler->FileReceived( data->filename, data->transferID );
+						#else
+						m_MessageHandler->FileReceived( data->filename, data->transferID, data->isReplayDemo );
+						#endif
+					}
+					else
+					{
+						Msg("Failed to write received file '%s'!\n", data->filename);
+					}
+				}
+			}
+			else
+			{
+				Msg("Download file '%s' has invalid path or extension!\n", data->filename);
+			}
+		}
+		else
+		{
+			Msg("Download file '%s' ignored. File uploads are disabled!\n", data->filename);
+		}
+	}
+
+	if (data->buffer)
+	{
+		g_pMemAlloc->Free(data->buffer);
+		data->buffer = NULL;
+	}
+
 	return true;
 }
 
@@ -297,8 +478,6 @@ void CGamePacketFix::Load() {
 		if (g_pProcessMessagesDetour) g_pProcessMessagesDetour->EnableDetour();
 		else g_pSM->LogError(myself, "Failed to setup CNetChan::ProcessMessages detour");
 		
-		bool bErrorGetStructure = false;
-		
 		pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "_ZN8CNetChan11FindMessageEi");
 		FindMessage = reinterpret_cast<decltype(FindMessage)>(pAddrFunc);
 		
@@ -308,11 +487,46 @@ void CGamePacketFix::Load() {
 		pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "_ZNK8CNetChan12IsOverflowedEv");
 		IsOverflowed = reinterpret_cast<decltype(IsOverflowed)>(pAddrFunc);
 	}
+	
+	if (!g_pCheckReceivingListDetour) {
+		void *pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "_ZN8CNetChan18CheckReceivingListEi");
+		g_pCheckReceivingListDetour = DETOUR_CREATE_MEMBER(CheckReceivingList, pAddrFunc);
+		if (g_pCheckReceivingListDetour) g_pCheckReceivingListDetour->EnableDetour();
+		else g_pSM->LogError(myself, "Failed to setup CNetChan::CheckReceivingList detour");
+
+		pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "BZ2_bzBuffToBuffDecompress");
+		BZ2_bzBuffToBuffDecompress = reinterpret_cast<decltype(BZ2_bzBuffToBuffDecompress)>(pAddrFunc);
+
+		pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "g_pFullFileSystem");
+		g_pFileSystem = *reinterpret_cast<decltype(g_pFileSystem)*>(pAddrFunc);
+
+		cvar = GetCVarIF();
+
+		net_showfragments = cvar->FindVar("net_showfragments");
+		sv_allowupload = cvar->FindVar("sv_allowupload");
+	}
+	
+	if (!g_pSetupDetour) {
+		void *pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "_ZN8CNetChan5SetupEiP8netadr_sPKcP18INetChannelHandler");
+		g_pSetupDetour = DETOUR_CREATE_MEMBER(Setup, pAddrFunc);
+		if (g_pSetupDetour) g_pSetupDetour->EnableDetour();
+		else g_pSM->LogError(myself, "Failed to setup CNetChan::Setup detour");
+	}
 }
 
 void CGamePacketFix::Unload() {
 	if (g_pProcessMessagesDetour) {
 		g_pProcessMessagesDetour->Destroy();
 		g_pProcessMessagesDetour = nullptr;
+	}
+	
+	if (g_pCheckReceivingListDetour) {
+		g_pCheckReceivingListDetour->Destroy();
+		g_pCheckReceivingListDetour = nullptr;
+	}
+	
+	if (g_pSetupDetour) {
+		g_pSetupDetour->Destroy();
+		g_pSetupDetour = nullptr;
 	}
 }

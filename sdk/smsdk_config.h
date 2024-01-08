@@ -40,7 +40,7 @@
 /* Basic information exposed publicly */
 #ifdef ENGINE_CSS34
 #define SMEXT_CONF_NAME			"ProtectCMDS [CS:S v34]"
-#define SMEXT_CONF_VERSION		"1.0.9 dev 3"
+#define SMEXT_CONF_VERSION		"1.0.9"
 #elif ENGINE_CSS
 #define SMEXT_CONF_NAME			"ProtectCMDS [CS:S]"
 #define SMEXT_CONF_VERSION		"1.0.0 dev 6"
