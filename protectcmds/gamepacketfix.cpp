@@ -210,6 +210,8 @@ bool ImplProcessMessages(void * NetChan, bf_read &buf) {
 			//netadr_s remote_address = *(netadr_s *)( (uintptr_t)NetChan + 116 );
 			
 			if (m_MessageHandler) m_MessageHandler->ConnectionCrashed( "[ProtectCMDS] Buffer overflow in net message" );
+
+			//ConMsg(0, "Buf overflow in buf.IsOverflowed()\n");
 			
 			return false;
 		}	
@@ -245,6 +247,8 @@ bool ImplProcessMessages(void * NetChan, bf_read &buf) {
 				//cout << "Netchannel: failed reading message " << msgname << " from " << remote_address.ToString() << endl;
 				
 				if (m_MessageHandler) m_MessageHandler->ConnectionCrashed( "[ProtectCMDS] Buffer overflow in net message" );
+
+				//ConMsg(0, "buf overflow in failed reading message\n");
 				
 				gamehelpers->ServerCommand(sCmd);
 			
@@ -293,6 +297,7 @@ bool ImplProcessMessages(void * NetChan, bf_read &buf) {
 			//cout << "Netchannel: unknown net message (" << cmd << ") from " << remote_address.ToString() << endl;
 			
 			if (m_MessageHandler) m_MessageHandler->ConnectionCrashed( "[ProtectCMDS] Buffer overflow in net message" );
+			//ConMsg(0, "buf overflow in unknown net message\n");
 			
 			//gamehelpers->ServerCommand(sCmd);
 			

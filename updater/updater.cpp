@@ -159,7 +159,7 @@ void CPCMDSUpdater::CheckUpdates(int iLibrary) {
 	string sFile = GetFileFromHTTP(sUrl.c_str());
 	
 	if (!sFile.length() || sFile.length() < 2) {
-		g_pSM->LogError(myself, "Failed get data from: %s", g_pSettings->GetString("ProtectCMDS_Updater", "protectcmds_updater_url", "0").c_str());
+		g_pSM->LogError(myself, "Failed get data from: %s", g_pSettings->GetString("Updater", "protectcmds_updater_url", "http://protectcmds.gm-world.ru").c_str());
 		
 		return;
 	}
@@ -171,7 +171,7 @@ void CPCMDSUpdater::CheckUpdates(int iLibrary) {
 	}
 	
 	if (memcmp(sFile.c_str(), "ok", 2)) {
-		g_pSM->LogError(myself, "Failed to get file from: %s", g_pSettings->GetString("ProtectCMDS_Updater", "protectcmds_updater_url", "0").c_str());
+		g_pSM->LogError(myself, "Failed to get file from: %s", g_pSettings->GetString("Updater", "protectcmds_updater_url", "http://protectcmds.gm-world.ru").c_str());
 		
 		return;
 	}

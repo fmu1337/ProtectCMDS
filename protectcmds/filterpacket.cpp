@@ -18,6 +18,7 @@ using namespace std;
 
 #ifdef ENGINE_CSS34
 #define NORMAL_SEQ_PACKET "\x00"
+#define NET_HEADER_FLAG_SPLITPACKET "\xFE\xFF\xFF\xFF"
 #endif
 
 #define GAME_PACKET_TIMEOUT 2
@@ -71,6 +72,15 @@ int RecvFromHook(int s, char *buf, int len, int flags, struct sockaddr *from, in
 		iRet = 1;
 		buf[0] = '\0';
 	}
+	
+	#ifdef ENGINE_CSS34
+	// Disable split packet
+	
+	if (!memcmp(buf, NET_HEADER_FLAG_SPLITPACKET, 4)) {
+		iRet = 1;
+		buf[0] = '\0';
+	}
+	#endif
 	
 	return iRet;
 }
