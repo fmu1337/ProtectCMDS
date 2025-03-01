@@ -31,18 +31,18 @@
 
 #include "extension.h"
 
+#include <icvar.h>
+#ifdef ENGINE_CSS34
+#define CVAR_INTERFACE_VERSION	VENGINE_CVAR_INTERFACE_VERSION
+#endif
+
 CProtectCMDS g_ProtectCMDS;		/**< Global singleton for extension's main interface */
 SMEXT_LINK(&g_ProtectCMDS);
 #ifdef ENGINE_CSS34
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CProtectCMDS, IProtectCMDS, INTERFACE_PROTECTCMDS, g_ProtectCMDS);
 #endif
 
-#include <iostream>
-
 char g_cPrefix[] = "[ProtectCMDS]";
-
-using namespace std;
-using std::string;
 
 #include <tier1/interface.h>
 #ifdef ENGINE_CSS34
@@ -71,7 +71,7 @@ bool CProtectCMDS::GetEngineNameLoaded(char *pEngine, int iMaxLength) {
 		
 		if (!pHandle) continue;
 		
-		strncpy(pEngine, sEngineName[i], iMaxLength);
+		Q_strncpy(pEngine, sEngineName[i], iMaxLength);
 		dlclose(pHandle);
 		
 		return true;
@@ -92,15 +92,29 @@ bool CProtectCMDS::LoadLibraries() {
 	}
 	
 	if (!g_pSymbolManager->AddModule(ESymbolModule::ENGINE, sEngine)) return false;
+
+	char szServerBin[MAX_PATH];
 	
-	#ifdef ENGINE_CSS34	
-	if (!g_pSymbolManager->AddModule(ESymbolModule::SERVER, "cstrike/bin/server_i486.so")) return false;
+	#ifdef ENGINE_CSS34
+	g_pSM->BuildPath(Path_Game, szServerBin, sizeof(szServerBin), "bin/server_i486.so");
 	if (!g_pSymbolManager->AddModule(ESymbolModule::VALVE_API, "bin/valve_api.so")) return false;
-	Sys_LoadInterface("cstrike/bin/server_i486.so", INTERFACEVERSION_PLAYERINFOMANAGER, nullptr, (void**)&g_pPlayerInfoManager);
+	cvar = GetCVarIF();
 	#else
-	if (!g_pSymbolManager->AddModule(ESymbolModule::SERVER, "cstrike/bin/server_srv.so")) return false;
-	Sys_LoadInterface("cstrike/bin/server_srv.so", INTERFACEVERSION_PLAYERINFOMANAGER, nullptr, (void**)&g_pPlayerInfoManager);
+	g_pSM->BuildPath(Path_Game, szServerBin, sizeof(szServerBin), "bin/server_srv.so");
+	CreateInterfaceFn vstdlibFactory = Sys_GetFactory("libvstdlib_srv.so");
+	cvar = static_cast<ICvar*>(vstdlibFactory(CVAR_INTERFACE_VERSION, nullptr));
 	#endif
+
+	if(!cvar)
+	{
+		g_pSM->LogError(myself, "Failed to get ICvar interface");
+		return false;
+	}
+
+	if (!g_pSymbolManager->AddModule(ESymbolModule::SERVER, szServerBin)) return false;
+
+	CreateInterfaceFn gameServerFactory = Sys_GetFactory(szServerBin);
+	g_pPlayerInfoManager = static_cast<IPlayerInfoManager*>(gameServerFactory(INTERFACEVERSION_PLAYERINFOMANAGER, nullptr));
 
 	if (!g_pPlayerInfoManager) {
 		g_pSM->LogError(myself, "Сould not find interface: %s", INTERFACEVERSION_PLAYERINFOMANAGER);
@@ -149,17 +163,26 @@ cell_t GetAbsoluteFrameTime(IPluginContext *pContext, const cell_t *params) {
 }
 
 bool CProtectCMDS::SDK_OnLoad(char* error, size_t maxlength, bool late) {
-	if (!LoadLibraries()) return false;
-	if (!LoadSettings()) return false;
+	if (!LoadLibraries())
+	{
+		Q_snprintf(error, maxlength, "Failed to load libraries");
+		return false;
+	}
+
+	if (!LoadSettings())
+	{
+		Q_snprintf(error, maxlength, "Failed to load settings");
+		return false;
+	}
 	
 	CDetourManager::Init(g_pSM->GetScriptingEngine(), nullptr);
 	
 	IExtension *pExtensionManager = nullptr;
 	SM_GET_IFACE(EXTENSIONMANAGER, pExtensionManager);
 	
-	if (!pExtensionManager) {
-		g_pSM->Format(error, maxlength, "[ProtectCMDS] Could not interface IExtensionManager");
-		
+	if (!pExtensionManager)
+	{
+		Q_snprintf(error, maxlength, "Failed to get IExtensionManager");
 		return false;
 	}
 	
@@ -201,17 +224,17 @@ void CProtectCMDS::SDK_OnAllLoaded() {
 		if (m_pHashingSteamID) m_pHashingSteamID->Load();
 		else g_pSM->LogError(myself, "SteamID Hashing failed to load!");
 	}
-	
+#ifdef ENGINE_CSS34
 	if (g_pSettings->GetInteger("GamePacketFix", "gamepacketfix_enable", 1)) {
 		m_pGamePacketFix = new CGamePacketFix;
 		if (m_pGamePacketFix) m_pGamePacketFix->Load();
 		else g_pSM->LogError(myself, "GamePacketFix failed to load!");
 	}
-	
+
 	m_pPreConnectHook = new CPreConnectHook;
 	if (m_pPreConnectHook) m_pPreConnectHook->Load();
 	else g_pSM->LogError(myself, "PreConnectHook failed to load!");
-	
+#endif
 	m_pVoiceFix = new CVoiceFix;
 	if (m_pVoiceFix) m_pVoiceFix->Load();
 	else g_pSM->LogError(myself, "VoiceFix failed to load!");
@@ -291,10 +314,12 @@ void CProtectCMDS::SDK_OnUnload() {
 	if (m_pGameStatsFix) m_pGameStatsFix->Unload();
 	if (m_pGameUIFix) m_pGameUIFix->Unload();
 	if (m_pHashingSteamID) m_pHashingSteamID->Unload();
-	if (m_pGamePacketFix) m_pGamePacketFix->Unload();
 	if (m_pObServerLoopFix) m_pObServerLoopFix->Unload();
 	if (m_pOSFix) m_pOSFix->Unload();
+#ifdef ENGINE_CSS34
+	if (m_pGamePacketFix) m_pGamePacketFix->Unload();
 	if (m_pPreConnectHook) m_pPreConnectHook->Unload();
+#endif
 	if (m_pSourceTVFix) m_pSourceTVFix->Unload();
 	if (m_pTakeDamageFix) m_pTakeDamageFix->Unload();
 	if (m_pVoiceFix) m_pVoiceFix->Unload();

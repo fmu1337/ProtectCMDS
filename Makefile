@@ -30,8 +30,8 @@ OBJECTS += updater/updater.cpp updater/http.cpp
 
 C_OPT_FLAGS = -DNDEBUG -O3 -funroll-loops -pipe -fno-strict-aliasing -msse -msse2
 C_DEBUG_FLAGS = -D_DEBUG -DDEBUG -g -ggdb3
-C_GCC4_FLAGS = -fvisibility=hidden
-CPP_GCC4_FLAGS = -fvisibility-inlines-hidden -std=c++14
+C_GCC4_FLAGS = -mfpmath=sse -Wno-maybe-uninitialized
+CPP_GCC4_FLAGS = -fno-omit-frame-pointer
 CPP = gcc
 CPP_OSX = clang
 
@@ -50,6 +50,7 @@ ifeq "$(ENGINE)" "css34"
 	HL2SDK = $(HL2SDK_ORIG)
 	ENGINE_EXT = ext
 	CFLAGS += -DENGINE_CSS34
+	CFLAGS += -D_strnicmp=strncasecmp -Dstrcmpi=strcasecmp -D_stricmp=strcasecmp
 	OBJECTS += protectcmds/blockloadplugin.cpp protectcmds/blockcmds.cpp
 	OBJECTS += protectcmds/boneindexbynamefix.cpp protectcmds/gamestatsfix.cpp
 	OBJECTS += protectcmds/gameuifix.cpp protectcmds/hashingsteamid.cpp
@@ -64,10 +65,10 @@ ifeq "$(ENGINE)" "css34"
 endif
 ifeq "$(ENGINE)" "css"
 	HL2SDK = $(HL2SDK_CSS)
-	ENGINE_EXT = ext.2.css
-	CFLAGS += -DENGINE_CSS
+	ENGINE_EXT = ext
+	CFLAGS += -DENGINE_CSS -DGNUC -Wno-dangling-else -Wno-unknown-pragmas
 	OBJECTS += protectcmds/blockcmds.cpp protectcmds/voicefix.cpp protectcmds/hashingsteamid.cpp
-	OBJECTS += protectcmds/gamepacketfix.cpp protectcmds/filterpacket.cpp
+	OBJECTS += protectcmds/filterpacket.cpp
 endif
 
 HL2PUB = $(HL2SDK)/public
@@ -90,7 +91,7 @@ else
 	ifeq "$(ENGINE)" "css34"
 		HL2LIB = $(HL2SDK)/linux_sdk
 	else
-		HL2LIB = $(HL2SDK)/lib/linux
+		HL2LIB = $(HL2SDK)/lib/public/linux
 	endif
 endif
 
@@ -120,14 +121,15 @@ ifeq "$(USEMETA)" "true"
 
 	INCLUDE += -I. -I.. -Isdk -I$(HL2PUB) -I$(HL2PUB)/engine -I$(HL2PUB)/steam -I$(HL2PUB)/mathlib -I$(HL2PUB)/tier0 \
 	-I$(HL2PUB)/tier1 -I$(METAMOD) -I$(METAMOD)/sourcehook -I$(SMSDK)/public -I$(SMSDK)/public/extensions \
-	-I$(SMSDK)/public/sourcepawn
+	-I$(SMSDK)/public/sourcepawn -I$(HL2SDK)/common
 endif
 
 LINK += -m32 -lm -ldl -lstdc++
 
-CFLAGS += -DPOSIX -Dstricmp=strcasecmp -D_stricmp=strcasecmp -D_strnicmp=strncasecmp -Dstrnicmp=strncasecmp \
-	-D_snprintf=snprintf -D_vsnprintf=vsnprintf -D_alloca=alloca -Dstrcmpi=strcasecmp -DCOMPILER_GCC -Wall -Werror \
-	-Wno-overloaded-virtual -Wno-switch -Wno-unused -msse -DSOURCEMOD_BUILD -DHAVE_STDINT_H -m32 -Wno-invalid-offsetof
+CFLAGS += -DPOSIX -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp \
+	-D_snprintf=snprintf -D_vsnprintf=vsnprintf -D_alloca=alloca -DCOMPILER_GCC -Wall -Werror \
+	-Wno-overloaded-virtual -Wno-switch -Wno-unused -msse -DSOURCEMOD_BUILD -DHAVE_STDINT_H -m32 -Wno-invalid-offsetof \
+	-Wno-write-strings -Wno-class-memaccess -Wno-packed-not-aligned -Wno-address
 CPPFLAGS += -Wno-non-virtual-dtor -fno-exceptions -fno-rtti
 
 ################################################
@@ -155,7 +157,7 @@ ifeq "$(OS)" "Darwin"
 	LINK += -dynamiclib -lstdc++ -mmacosx-version-min=10.5
 else
 	LIB_EXT = so
-	CFLAGS += -D_LINUX
+	CFLAGS += -D_LINUX -DLINUX -DPOSIX
 	LINK += -shared
 endif
 

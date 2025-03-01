@@ -16,6 +16,7 @@
 #include <igameevents.h>
 #ifdef ENGINE_CSS
 #include <iserver.h>
+#include <userid.h>
 #endif
 
 using namespace std;
@@ -43,10 +44,12 @@ const USERID_t (__cdecl* GetNetworkID)(void *This);
 #define MAXPLAYERS 65
 #define IDTYPE_STEAM	1
 
+#ifdef ENGINE_CSS34
 struct USERID_t {
 	int			idtype;
 	CSteamID	steamid;
 };
+#endif
 
 IServer *g_pServer = nullptr;
 
@@ -116,7 +119,7 @@ DETOUR_DECL_MEMBER1(GetClientSteamIDByPlayerIndexHook, CSteamID *, int, entnum) 
 
 DETOUR_DECL_MEMBER1(SetSteamID, void *, CSteamID &, inputSteamID) {
 	CBaseClient* pBaseClient = reinterpret_cast<CBaseClient *>(this);
-	
+
 	if (pBaseClient->IsFakeClient() || pBaseClient->IsHLTV()) return DETOUR_MEMBER_CALL(SetSteamID)(inputSteamID);
 	
 	uint32_t inputAccountID = inputSteamID.GetAccountID();
@@ -216,8 +219,15 @@ bool CHashingSteamID::LoadSalt(char *szPath) {
 	int nFileSize = ftell(pFile);
 	fseek(pFile, 0L, SEEK_SET);
 	
-	if (fread(&g_sSalt[0], sizeof(char), nFileSize, pFile)) 
-		cout << g_cPrefix << " Salt is loaded!\n" << endl;
+	g_sSalt.resize(clamp(nFileSize, 0, SALT_BIT/8));
+	
+	if(g_sSalt.capacity() > 0)
+	{
+		if ( fread((void*)g_sSalt.data(), sizeof(char), nFileSize, pFile) ) 
+		{
+			cout << g_cPrefix << " Salt is loaded!\n" << endl;
+		}
+	}
 	
 	fclose(pFile);
 	

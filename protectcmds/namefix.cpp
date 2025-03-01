@@ -35,7 +35,7 @@ DETOUR_DECL_MEMBER1(ProcessSetConVarHook, bool, NET_SetConVar *, msg) {
 	KeyValues *pConVars = (KeyValues *)*((uintptr_t *)this + 37);
 
 	char szOldName[64];
-	strncpy(szOldName, (char *)pConVars->GetString("name"), sizeof(szOldName));
+	Q_strncpy(szOldName, (char *)pConVars->GetString("name"), sizeof(szOldName));
 	
 	for ( int i=0; i<msg->m_ConVars.Count(); i++ ) {
 		const char *name = msg->m_ConVars[i].name;

@@ -230,6 +230,11 @@ void SDKExtension::OnExtensionUnload()
 	SDK_OnUnload();
 }
 
+void SDKExtension::OnDependenciesDropped()
+{
+	SDK_OnDependenciesDropped();
+}
+
 const char *SDKExtension::GetExtensionAuthor()
 {
 	return SMEXT_CONF_AUTHOR;
@@ -282,7 +287,17 @@ void SDKExtension::SDK_OnAllLoaded()
 {
 }
 
+void SDKExtension::SDK_OnDependenciesDropped()
+{
+}
+
 #if defined SMEXT_CONF_METAMOD
+
+#if defined _MSC_VER
+#define SMEXT_DLL_EXPORT				extern "C" __declspec(dllexport)
+#else
+#define SMEXT_DLL_EXPORT				extern "C" __attribute__((visibility("default")))
+#endif
 
 PluginId g_PLID = 0;						/**< Metamod plugin ID */
 ISmmPlugin *g_PLAPI = NULL;					/**< Metamod plugin API */
@@ -298,12 +313,11 @@ static void* GetMetamodInterface()
 	return static_cast<void *>(g_pExtensionIface);
 }
 
-#if defined METAMOD_PLAPI_VERSION
-#include <tier1/interface.h>
-static InterfaceReg sCreateMetamodInterface(GetMetamodInterface, METAMOD_PLAPI_NAME);
-#else
-static InterfaceReg sCreateMetamodInterface(GetMetamodInterface, PLAPI_NAME);
-#endif
+/** Exposes the extension to Metamod */
+SMEXT_DLL_EXPORT METAMOD_PLUGIN *CreateInterface_MMS(const MetamodVersionInfo *mvi, const MetamodLoaderInfo *mli)
+{
+	return g_pExtensionIface;
+}
 
 bool SDKExtension::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, bool late)
 {

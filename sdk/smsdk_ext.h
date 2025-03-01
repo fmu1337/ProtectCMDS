@@ -141,6 +141,12 @@ public:
 	 */
 	virtual void SDK_OnPauseChange(bool paused);
 
+	/**
+	 * @brief Called after SDK_OnUnload, once all dependencies have been
+	 * removed, and the extension is about to be removed from memory.
+	 */
+	virtual void SDK_OnDependenciesDropped();
+
 #if defined SMEXT_CONF_METAMOD
 	/**
 	 * @brief Called when Metamod is attached, before the extension version is called.
@@ -203,6 +209,9 @@ public: //IExtensionInterface
 	virtual const char *GetExtensionDescription();
 	/** Returns date string */
 	virtual const char *GetExtensionDateString();
+
+	/** Called after OnExtensionUnload, once dependencies have been dropped. */
+	virtual void OnDependenciesDropped();
 #if defined SMEXT_CONF_METAMOD
 public: //ISmmPlugin
 	/** Called when the extension is attached to Metamod. */

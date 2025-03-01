@@ -79,8 +79,6 @@ CRateLimit g_UncompressLimiter[65];
 
 /*Start Function Pointer*/
 INetMessage *(__cdecl* FindMessage)(void *CNetChanThis, int cmd);
-void (__cdecl* UpdateMessageStats)(void *CNetChanThis, int msgroup, int bits);
-bool (__cdecl* IsOverflowed)(void *CNetChanThis);
 typedef int(__cdecl* BZ2_bzBuffToBuffDecompressFn)(char*         dest, 
       unsigned int* destLen,
       char*         source, 
@@ -202,7 +200,7 @@ bool ProcessControlMessage( void *CNetChanThis, int cmd, bf_read &buf) {
 	return false;
 }
 
-bool ImplProcessMessages(void * NetChan, bf_read &buf) {
+bool ImplProcessMessages(CNetChan * NetChan, bf_read &buf) {
 	int startbit = buf.GetNumBitsRead();
 	while ( true ) {
 		if ( buf.IsOverflowed() ) {
@@ -255,7 +253,7 @@ bool ImplProcessMessages(void * NetChan, bf_read &buf) {
 				return false;
 			}
 
-			UpdateMessageStats( NetChan, netmsg->GetGroup(), buf.GetNumBitsRead() - startbit );
+			NetChan->UpdateMessageStats( netmsg->GetGroup(), buf.GetNumBitsRead() - startbit );
 			
 			bool &m_bProcessingMessages = *(bool *)((uintptr_t)NetChan + 4);
 			m_bProcessingMessages = true;
@@ -288,7 +286,7 @@ bool ImplProcessMessages(void * NetChan, bf_read &buf) {
 				return false;
 			}
 
-			if ( IsOverflowed(NetChan) ) return false;
+			if ( NetChan->IsOverflowed() ) return false;
 		}
 		else {
 			//netadr_s *remote_address = (reinterpret_cast<CNetChan *>(NetChan))->remote_address();
@@ -309,7 +307,7 @@ bool ImplProcessMessages(void * NetChan, bf_read &buf) {
 }
 
 DETOUR_DECL_MEMBER1(ProcessMessages, bool, bf_read &, buf) {
-	return ImplProcessMessages(this, buf);
+	return ImplProcessMessages((CNetChan*)this, buf);
 }
 
 DETOUR_DECL_MEMBER4(Setup, void, int, sock, void *, adr, const char *, name, INetChannelHandler *, handler) {
@@ -325,57 +323,62 @@ DETOUR_DECL_MEMBER4(Setup, void, int, sock, void *, adr, const char *, name, INe
 	return DETOUR_MEMBER_CALL(Setup)(sock, adr, name, handler);
 }
 
-void UncompressFragments( dataFragments_t *data )
+void UncompressFragments( dataFragments_t& data )
 {
-	char *newbuffer = (char*)g_pMemAlloc->Alloc((data->nUncompressedSize + 3) & 0xFFFFFFFC);
-	unsigned int uncompressedSize = data->nUncompressedSize;
+	char *newbuffer = (char*)g_pMemAlloc->Alloc((data.nUncompressedSize + 3) & 0xFFFFFFFC);
+	unsigned int uncompressedSize = data.nUncompressedSize;
 
-	BZ2_bzBuffToBuffDecompress( newbuffer, &uncompressedSize, data->buffer, data->bytes, 1, 0 );
+	BZ2_bzBuffToBuffDecompress( newbuffer, &uncompressedSize, data.buffer, data.bytes, 1, 0 );
 
-	if(data->buffer)
+	if(data.buffer)
 	{
-		g_pMemAlloc->Free(data->buffer);
+		g_pMemAlloc->Free(data.buffer);
 	}
-	data->buffer = newbuffer;
-	data->bytes = uncompressedSize;
-	data->isCompressed = false;
+	data.buffer = newbuffer;
+	data.bytes = uncompressedSize;
+	data.isCompressed = false;
 }
 
 DETOUR_DECL_MEMBER1(CheckReceivingList, bool, int, nList) {
-	dataFragments_t *data = (dataFragments_t *)((char *)this + 304 * nList);
+	CNetChan* pNetChan = reinterpret_cast<CNetChan *>(this);
 	
-	if (data->buffer == NULL)
-		return true;
-
-	if (data->ackedFragments < data->numFragments)
-		return true;
-
-	if (data->ackedFragments > data->numFragments)
+	dataFragments_t& data = pNetChan->GetReceiveList(nList);
+	if (data.buffer == NULL)
 	{
-		Msg("Receiving failed: too many fragments %i/%i\n", data->ackedFragments, data->numFragments);
+		return true;
+	}
+	
+	if (data.ackedFragments < data.numFragments)
+	{
+		return true;
+	}
+	
+	if (data.ackedFragments > data.numFragments)
+	{
+		Msg("Receiving failed: too many fragments %i/%i\n", data.ackedFragments, data.numFragments);
 		return false;
 	}
 
 	if (net_showfragments->GetBool())
 	{
-		Msg("Receiving complete: %i fragments, %i bytes\n", data->numFragments, data->bytes);
+		Msg("Receiving complete: %i fragments, %i bytes\n", data.numFragments, data.bytes);
 	}
 
-	if (data->isCompressed)
+	if (data.isCompressed)
 	{
-		INetChannelHandler *m_MessageHandler = (reinterpret_cast<CNetChan *>(this))->m_MessageHandler();	
+		INetChannelHandler *m_MessageHandler = pNetChan->m_MessageHandler();	
 		
 		int m_nClientSlot = (int)(*((int*)m_MessageHandler + 3));
 		
-		if (!g_UncompressLimiter[m_nClientSlot].Check(data->nUncompressedSize)) return false;
+		if (!g_UncompressLimiter[m_nClientSlot].Check(data.nUncompressedSize)) return false;
 		
 		UncompressFragments(data);
 	}
 
-	if (!data->filename[0])
+	if (!data.filename[0])
 	{
-		bf_read buffer(data->buffer, data->bytes);
-		if (!ImplProcessMessages((void *)this, buffer))
+		bf_read buffer(data.buffer, data.bytes);
+		if (!ImplProcessMessages(pNetChan, buffer))
 		{
 			return false;
 		}
@@ -384,71 +387,71 @@ DETOUR_DECL_MEMBER1(CheckReceivingList, bool, int, nList) {
 	{
 		if (sv_allowupload->GetBool())
 		{
-			if (IsValidFileForTransfer(data->filename))
+			if (IsValidFileForTransfer(data.filename))
 			{
 				#ifdef ENGINE_CSS34
 				CVTFValidator VTFValidator;
-				if ( !VTFValidator.IsValid(data->buffer, data->bytes) )
+				if ( !VTFValidator.IsValid(data.buffer, data.bytes) )
 				{
 					if ( VTFValidator.IsShouldLog() )
 					{
-						Msg("VTFValidator: invalid spray from %s (%s)\n", ((reinterpret_cast<CNetChan *>(this))->remote_address())->ToString(), VTFValidator.GetLastError());
+						Msg("VTFValidator: invalid spray from %s (%s)\n", pNetChan->remote_address()->ToString(), VTFValidator.GetLastError());
 					}
 
-					delete [] data->buffer; 
-					data->buffer = NULL;
+					delete [] data.buffer; 
+					data.buffer = NULL;
 
 					return true;
 				}
 				#endif
 				
-				if (!g_pFileSystem->FileExists(data->filename))
+				if (!g_pFileSystem->FileExists(data.filename))
 				{
 					char szParentDir[ MAX_PATH ];
-					if ( !V_ExtractFilePath( data->filename, szParentDir, sizeof(szParentDir) ) )
+					if ( !V_ExtractFilePath( data.filename, szParentDir, sizeof(szParentDir) ) )
 					{
 						szParentDir[0] = '\0';
 					}
 					g_pFileSystem->CreateDirHierarchy( szParentDir );
 
-					data->file = g_pFileSystem->Open(data->filename, "wb");
-					if (FILESYSTEM_INVALID_HANDLE != data->file)
+					data.file = g_pFileSystem->Open(data.filename, "wb");
+					if (FILESYSTEM_INVALID_HANDLE != data.file)
 					{
-						g_pFileSystem->Write(data->buffer, data->bytes, data->file);
-						g_pFileSystem->Close(data->file);
+						g_pFileSystem->Write(data.buffer, data.bytes, data.file);
+						g_pFileSystem->Close(data.file);
 						if (net_showfragments->GetInt() == 2)
 						{
-							DevMsg("FileReceived: %s, %i bytes (ID %i)\n", data->filename, data->bytes, data->transferID);
+							DevMsg("FileReceived: %s, %i bytes (ID %i)\n", data.filename, data.bytes, data.transferID);
 						}
-						INetChannelHandler *m_MessageHandler = (reinterpret_cast<CNetChan *>(this))->m_MessageHandler();
+						INetChannelHandler *m_MessageHandler = pNetChan->m_MessageHandler();
 						
 						#ifdef ENGINE_CSS34
-						m_MessageHandler->FileReceived( data->filename, data->transferID );
+						m_MessageHandler->FileReceived( data.filename, data.transferID );
 						#else
-						m_MessageHandler->FileReceived( data->filename, data->transferID, data->isReplayDemo );
+						m_MessageHandler->FileReceived( data.filename, data.transferID );
 						#endif
 					}
 					else
 					{
-						Msg("Failed to write received file '%s'!\n", data->filename);
+						Msg("Failed to write received file '%s'!\n", data.filename);
 					}
 				}
 			}
 			else
 			{
-				Msg("Download file '%s' has invalid path or extension!\n", data->filename);
+				Msg("Download file '%s' has invalid path or extension!\n", data.filename);
 			}
 		}
 		else
 		{
-			Msg("Download file '%s' ignored. File uploads are disabled!\n", data->filename);
+			Msg("Download file '%s' ignored. File uploads are disabled!\n", data.filename);
 		}
 	}
 
-	if (data->buffer)
+	if (data.buffer)
 	{
-		g_pMemAlloc->Free(data->buffer);
-		data->buffer = NULL;
+		g_pMemAlloc->Free(data.buffer);
+		data.buffer = NULL;
 	}
 
 	return true;
@@ -466,16 +469,6 @@ void CGamePacketFix::Load() {
 			"library"    "engine"
 			"linux"        "@_ZN8CNetChan11FindMessageEi"
 		}
-		"CNetChan::UpdateMessageStats"
-		{
-			"library"    "engine"
-			"linux"        "@_ZN8CNetChan18UpdateMessageStatsEii"
-		}
-		"CNetChan::IsOverflowed"
-		{
-			"library"    "engine"
-			"linux"        "@_ZNK8CNetChan12IsOverflowedEv"
-		}
 	*/
 	if (!g_pProcessMessagesDetour) {
 		void *pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "_ZN8CNetChan15ProcessMessagesER7bf_read");
@@ -485,12 +478,6 @@ void CGamePacketFix::Load() {
 		
 		pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "_ZN8CNetChan11FindMessageEi");
 		FindMessage = reinterpret_cast<decltype(FindMessage)>(pAddrFunc);
-		
-		pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "_ZN8CNetChan18UpdateMessageStatsEii");
-		UpdateMessageStats = reinterpret_cast<decltype(UpdateMessageStats)>(pAddrFunc);
-		
-		pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "_ZNK8CNetChan12IsOverflowedEv");
-		IsOverflowed = reinterpret_cast<decltype(IsOverflowed)>(pAddrFunc);
 	}
 	
 	if (!g_pCheckReceivingListDetour) {
@@ -505,14 +492,16 @@ void CGamePacketFix::Load() {
 		pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "g_pFullFileSystem");
 		g_pFileSystem = *reinterpret_cast<decltype(g_pFileSystem)*>(pAddrFunc);
 
-		cvar = GetCVarIF();
-
 		net_showfragments = cvar->FindVar("net_showfragments");
 		sv_allowupload = cvar->FindVar("sv_allowupload");
 	}
 	
 	if (!g_pSetupDetour) {
+#ifdef ENGINE_CSS34
 		void *pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "_ZN8CNetChan5SetupEiP8netadr_sPKcP18INetChannelHandler");
+#else
+		void *pAddrFunc = g_pSymbolManager->Resolve(ESymbolModule::ENGINE, "_ZN8CNetChan5SetupEiP8netadr_sPKcP18INetChannelHandleri");
+#endif
 		g_pSetupDetour = DETOUR_CREATE_MEMBER(Setup, pAddrFunc);
 		if (g_pSetupDetour) g_pSetupDetour->EnableDetour();
 		else g_pSM->LogError(myself, "Failed to setup CNetChan::Setup detour");

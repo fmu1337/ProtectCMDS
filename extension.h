@@ -43,7 +43,9 @@
 /* Include */
 #include "protectcmds/voicefix.h"
 #include "protectcmds/gameuifix.h"
+#ifdef ENGINE_CSS34
 #include "protectcmds/preconnecthook.h"
+#endif
 #include "protectcmds/sourcetvfix.h"
 #include "protectcmds/boneindexbynamefix.h"
 #include "protectcmds/takedamagefix.h"
@@ -159,10 +161,12 @@ private:
 	CGameStatsFix *m_pGameStatsFix 				= 	nullptr;
 	CGameUIFix *m_pGameUIFix 					=	nullptr;
 	CHashingSteamID *m_pHashingSteamID 			=	nullptr;
-	CGamePacketFix *m_pGamePacketFix 			=	nullptr;
 	CObServerLoopFix *m_pObServerLoopFix 		=	nullptr;
 	COSFix *m_pOSFix 							=	nullptr;
+#ifdef ENGINE_CSS34
+CGamePacketFix *m_pGamePacketFix 			=	nullptr;
 	CPreConnectHook *m_pPreConnectHook			=	nullptr;
+#endif
 	CSourceTVFix *m_pSourceTVFix				=	nullptr;
 	CTakeDamageFix *m_pTakeDamageFix			=	nullptr;
 	CVoiceFix *m_pVoiceFix						=	nullptr;

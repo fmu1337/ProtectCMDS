@@ -30,10 +30,10 @@ DETOUR_DECL_MEMBER1(ClientCommandHook, bool, char *, pCommand) {
 	if (StrContains(pCommand, "spec_goto", true) == 0) {
 		if ( (GetObserverMode( this ) == OBS_MODE_FIXED || GetObserverMode( this ) == OBS_MODE_ROAMING) && g_pEngine->Cmd_Argc() == 6 ) {
 			Vector origin;
-			origin.x = clamp( atof( g_pEngine->Cmd_Argv(1) ), MIN_COORD_FLOAT, MAX_COORD_FLOAT );
- 			origin.y = clamp( atof( g_pEngine->Cmd_Argv(2) ), MIN_COORD_FLOAT, MAX_COORD_FLOAT );
- 			origin.z = clamp( atof( g_pEngine->Cmd_Argv(3) ), MIN_COORD_FLOAT, MAX_COORD_FLOAT );
-
+			origin.x = V_clamp( atof( g_pEngine->Cmd_Argv(1) ), MIN_COORD_FLOAT, MAX_COORD_FLOAT );
+ 			origin.y = V_clamp( atof( g_pEngine->Cmd_Argv(2) ), MIN_COORD_FLOAT, MAX_COORD_FLOAT );
+ 			origin.z = V_clamp( atof( g_pEngine->Cmd_Argv(3) ), MIN_COORD_FLOAT, MAX_COORD_FLOAT );
+			
 			QAngle angle;
 			angle.x = atof( g_pEngine->Cmd_Argv(4) );
 			angle.y = atof( g_pEngine->Cmd_Argv(5) );

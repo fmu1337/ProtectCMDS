@@ -9,20 +9,4 @@ class CGamePacketFix : public IFix {
 		void Unload();
 };
 
-struct dataFragments_t
-{
-  int a1[48];
-  void *file;
-  char filename[260];
-  char *buffer;
-  unsigned int bytes;
-  unsigned int bits;
-  int transferID;
-  bool isCompressed;
-  unsigned int nUncompressedSize;
-  bool asTCP;
-  int numFragments;
-  int ackedFragments;
-};
-
 #endif
