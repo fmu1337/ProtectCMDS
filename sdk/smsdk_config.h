@@ -43,7 +43,7 @@
 #define SMEXT_CONF_VERSION		"1.0.10"
 #elif ENGINE_CSS
 #define SMEXT_CONF_NAME			"ProtectCMDS [CS:S]"
-#define SMEXT_CONF_VERSION		"1.0.0 dev 6"
+#define SMEXT_CONF_VERSION		"1.1.0"
 #endif
 #define SMEXT_CONF_DESCRIPTION	"Exploit protection"
 #define SMEXT_CONF_AUTHOR		"WeSTMan"
