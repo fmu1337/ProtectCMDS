@@ -1,0 +1,81 @@
+name: Build
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Same base as .devcontainer: older glibc/libstdc++ keeps the .so loadable on older servers
+    container: ubuntu:20.04
+    steps:
+      - name: Install toolchain
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends gcc g++ gcc-multilib g++-multilib git make ca-certificates
+
+      - uses: actions/checkout@v4
+
+      - name: Fetch SDKs
+        run: |
+          mkdir -p /sdk
+          git clone --depth 1 -b episode1 https://github.com/alliedmodders/hl2sdk /sdk/hl2sdk-episode1
+          git clone --depth 1 -b css https://github.com/alliedmodders/hl2sdk /sdk/hl2sdk-css
+          git clone --depth 1 -b 1.6-dev https://github.com/alliedmodders/sourcemod /sdk/sourcemod
+          git clone --depth 1 -b 1.10-dev https://github.com/alliedmodders/metamod-source /sdk/mmsource
+
+      - name: Build
+        run: |
+          mkdir -p dist
+          for ENGINE in css34 css; do
+            make ENGINE=$ENGINE SMSDK=/sdk/sourcemod MMSOURCE110=/sdk/mmsource \
+              HL2SDK_ORIG=/sdk/hl2sdk-episode1 HL2SDK_CSS=/sdk/hl2sdk-css -j$(nproc)
+            cp Release.$ENGINE/protectcmds.ext.so dist/protectcmds.$ENGINE.ext.so
+          done
+          cd dist
+          for f in *.so; do sha256sum "$f" > "$f.sha256"; done
+          ls -la
+          cat *.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: protectcmds
+          path: dist/
+
+  release:
+    needs: build
+    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: protectcmds
+          path: dist
+
+      # Stable channel: updater uses releases/latest/download/...
+      - name: Stable release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes
+
+      # Experimental channel: updater uses releases/download/experimental/...
+      - name: Experimental release
+        if: github.ref == 'refs/heads/master'
+        run: |
+          gh release delete experimental --cleanup-tag --yes || true
+          gh release create experimental dist/* --prerelease --target "$GITHUB_SHA" \
+            --title "Experimental" --notes "Automatic build of $GITHUB_SHA"
