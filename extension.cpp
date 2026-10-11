@@ -189,7 +189,7 @@ bool CProtectCMDS::SDK_OnLoad(char* error, size_t maxlength, bool late) {
 	if (g_pSettings->GetInteger("Updater", "protectcmds_updater_enable", 1)) {
 		m_pUpdater = new CPCMDSUpdater;
 		if (m_pUpdater) {
-			m_pUpdater->SetRepository(g_pSettings->GetString("Updater", "protectcmds_updater_repository", "fmu1337/protectcmds"));
+			m_pUpdater->SetRepository(g_pSettings->GetString("Updater", "protectcmds_updater_repository", PCMDS_REPOSITORY));
 			m_pUpdater->SetExperimental(g_pSettings->GetInteger("Updater", "protectcmds_updater_experimental", 0));
 			m_pUpdater->Load((void *)pExtensionManager);
 		}

@@ -5,6 +5,11 @@
 
 #include <string>
 
+//GitHub repository with releases, CI passes its own (forks update from themselves)
+#ifndef PCMDS_REPOSITORY
+#define PCMDS_REPOSITORY "fmu1337/protectcmds"
+#endif
+
 class CPCMDSUpdater {
 	public:
 		void Load(void *pExtensionManager);

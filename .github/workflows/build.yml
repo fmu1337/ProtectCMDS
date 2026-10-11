@@ -39,7 +39,8 @@ jobs:
           mkdir -p dist
           for ENGINE in css34 css; do
             make ENGINE=$ENGINE SMSDK=/sdk/sourcemod MMSOURCE110=/sdk/mmsource \
-              HL2SDK_ORIG=/sdk/hl2sdk-episode1 HL2SDK_CSS=/sdk/hl2sdk-css -j$(nproc)
+              HL2SDK_ORIG=/sdk/hl2sdk-episode1 HL2SDK_CSS=/sdk/hl2sdk-css \
+              PCMDS_REPOSITORY="$GITHUB_REPOSITORY" -j$(nproc)
             cp Release.$ENGINE/protectcmds.ext.so dist/protectcmds.$ENGINE.ext.so
           done
           cd dist
