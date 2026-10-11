@@ -5,21 +5,26 @@
 
 #include <string>
 
+//GitHub repository with releases, CI passes its own (forks update from themselves)
+#ifndef PCMDS_REPOSITORY
+#define PCMDS_REPOSITORY "fmu1337/protectcmds"
+#endif
+
 class CPCMDSUpdater {
 	public:
 		void Load(void *pExtensionManager);
 		void Unload();
 	
 	public:
-		void SetUrl(std::string sUrl);
+		void SetRepository(std::string sRepository);
 		void SetExperimental(bool bExperimental);
 			
 		void Update();
 		void CheckUpdates(int iLibrary);
 		
-		std::string GetFileFromHTTP(const char *pUrl);
+		bool GetFileFromHTTP(const std::string &sUrl, std::string &sContent);
 		std::string GetSHA256FromFile(const char *pFile);
-		std::string GenerateUrl(int iLibrary, std::string sHash);
+		std::string GetReleaseUrl(const char *pFile);
 			
 		void LoadProtectCMDS();
 		bool UnloadProtectCMDS();
@@ -29,12 +34,11 @@ class CPCMDSUpdater {
 		int GetUsePCMDSLibrary();
 		bool IsLibraryLoaded(const char *pLibraryName);
 			
-		bool CheckDownloadFile(int iLibrary, std::string sFile);
 		bool RemoveExtension(int iLibrary);
-		bool WriteExtension(int iLibrary, std::string sFile);
+		bool WriteExtension(int iLibrary, const std::string &sFile);
 		
 	private:
-		std::string m_sUrl;
+		std::string m_sRepository;
 		bool m_bExperimental = false;
 };
 

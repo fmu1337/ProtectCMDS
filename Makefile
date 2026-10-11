@@ -24,6 +24,9 @@ OBJECTS += helpers/symbolmanager.cpp helpers/strtools.cpp helpers/sha256.cpp pro
 OBJECTS += helpers/inireader.cpp helpers/ini.c
 OBJECTS += updater/updater.cpp updater/http.cpp
 
+BEARSSL = third_party/bearssl
+BEARSSL_SRC := $(shell find $(BEARSSL)/src -name '*.c') updater/trust_anchors.c
+
 ##############################################
 ### CONFIGURE ANY OTHER FLAGS/OPTIONS HERE ###
 ##############################################
@@ -109,7 +112,7 @@ else
 	endif
 endif
 
-INCLUDE += -I. -I.. -Isdk -I$(SMSDK)/public -I$(SMSDK)/public/sourcepawn
+INCLUDE += -I. -I.. -Isdk -I$(SMSDK)/public -I$(SMSDK)/public/sourcepawn -I$(BEARSSL)/inc
 
 ifeq "$(USEMETA)" "true"
 	LINK_HL2 = $(HL2LIB)/tier1_i486.a $(LIB_PREFIX)vstdlib$(LIB_SUFFIX) $(LIB_PREFIX)tier0$(LIB_SUFFIX)
@@ -131,6 +134,10 @@ CFLAGS += -DPOSIX -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp \
 	-Wno-overloaded-virtual -Wno-switch -Wno-unused -msse -DSOURCEMOD_BUILD -DHAVE_STDINT_H -m32 -Wno-invalid-offsetof \
 	-Wno-write-strings -Wno-class-memaccess -Wno-packed-not-aligned -Wno-address
 CPPFLAGS += -Wno-non-virtual-dtor -fno-exceptions -fno-rtti
+
+ifneq "$(PCMDS_REPOSITORY)" ""
+	CFLAGS += -DPCMDS_REPOSITORY=\"$(PCMDS_REPOSITORY)\"
+endif
 
 ################################################
 ### DO NOT EDIT BELOW HERE FOR MOST PROJECTS ###
@@ -194,6 +201,10 @@ endif
 
 OBJ_BIN := $(OBJECTS:%.cpp=$(BIN_DIR)/%.o)
 
+BEARSSL_OBJ := $(BEARSSL_SRC:%.c=$(BIN_DIR)/%.o)
+BEARSSL_LIB = $(BIN_DIR)/libbearssl.a
+BEARSSL_CFLAGS = -Os -m32 -fPIC -fvisibility=hidden -ffunction-sections -fdata-sections -I$(BEARSSL)/inc -I$(BEARSSL)/src
+
 # This will break if we include other Makefiles, but is fine for now. It allows
 #  us to make a copy of this file that uses altered paths (ie. Makefile.mine)
 #  or other changes without mucking up the original.
@@ -221,8 +232,15 @@ check:
 		exit 1; \
 	fi
 
-extension: check $(OBJ_BIN)
-	$(CPP) $(INCLUDE) $(OBJ_BIN) $(LINK) -o $(BIN_DIR)/$(BINARY)
+$(BEARSSL_OBJ): $(BIN_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CPP) $(BEARSSL_CFLAGS) -o $@ -c $<
+
+$(BEARSSL_LIB): $(BEARSSL_OBJ)
+	$(AR) rcs $@ $^
+
+extension: check $(OBJ_BIN) $(BEARSSL_LIB)
+	$(CPP) $(INCLUDE) $(OBJ_BIN) $(BEARSSL_LIB) $(LINK) -o $(BIN_DIR)/$(BINARY)
 
 debug:
 	$(MAKE) -f $(MAKEFILE_NAME) all DEBUG=true
