@@ -114,6 +114,12 @@ endif
 
 INCLUDE += -I. -I.. -Isdk -I$(SMSDK)/public -I$(SMSDK)/public/sourcepawn -I$(BEARSSL)/inc
 
+# Newer SourceMod keeps SourcePawn and AMTL headers in submodules; 1.13 headers need C++17
+ifneq "$(wildcard $(SMSDK)/sourcepawn/include/sp_vm_api.h)" ""
+	INCLUDE += -I$(SMSDK)/sourcepawn/include -I$(SMSDK)/public/amtl -I$(SMSDK)/public/amtl/amtl
+	CPPFLAGS += -std=c++17
+endif
+
 ifeq "$(USEMETA)" "true"
 	LINK_HL2 = $(HL2LIB)/tier1_i486.a $(LIB_PREFIX)vstdlib$(LIB_SUFFIX) $(LIB_PREFIX)tier0$(LIB_SUFFIX)
 	ifeq "$(ENGINE)" "csgo"
@@ -139,6 +145,11 @@ ifneq "$(PCMDS_REPOSITORY)" ""
 	CFLAGS += -DPCMDS_REPOSITORY=\"$(PCMDS_REPOSITORY)\"
 endif
 
+# SMLINE=sm113: build for another SourceMod line, own build dir and own release asset for the updater
+ifneq "$(SMLINE)" ""
+	CFLAGS += -DPCMDS_RELEASE_ASSET=\"$(PROJECT).$(ENGINE).$(SMLINE).ext.so\"
+endif
+
 ################################################
 ### DO NOT EDIT BELOW HERE FOR MOST PROJECTS ###
 ################################################
@@ -155,6 +166,10 @@ endif
 
 ifeq "$(USEMETA)" "true"
 	BIN_DIR := $(BIN_DIR).$(ENGINE)
+endif
+
+ifneq "$(SMLINE)" ""
+	BIN_DIR := $(BIN_DIR).$(SMLINE)
 endif
 
 ifeq "$(OS)" "Darwin"
