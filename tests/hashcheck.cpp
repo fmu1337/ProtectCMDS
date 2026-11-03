@@ -53,7 +53,8 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 
-	std::string *pSalt =(std::string *)dlsym(pLib, "g_sSalt");
+	// std::string globals carry the [abi:cxx11] tag in their mangled name
+	std::string *pSalt = (std::string *)dlsym(pLib, "_Z7g_sSaltB5cxx11");
 	HashSteam_t HashSteam = (HashSteam_t)dlsym(pLib, "_ZN15CHashingSteamID9HashSteamEj");
 	if (!pSalt || !HashSteam) {
 		fprintf(stderr, "dlsym: g_sSalt=%p HashSteam=%p\n", (void *)pSalt, (void *)HashSteam);
