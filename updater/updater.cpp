@@ -28,7 +28,9 @@ const char g_sUpdateExtension[MAX_LIBRARY][20] = {
 	"ProtectCMDS EP1", "ProtectCMDS EP2", "ProtectCMDS"
 };
 
-#ifdef ENGINE_CSS34
+#ifdef PCMDS_RELEASE_ASSET
+const char g_sReleaseAsset[] = PCMDS_RELEASE_ASSET;
+#elif ENGINE_CSS34
 const char g_sReleaseAsset[] = "protectcmds.css34.ext.so";
 #elif ENGINE_CSS
 const char g_sReleaseAsset[] = "protectcmds.css.ext.so";

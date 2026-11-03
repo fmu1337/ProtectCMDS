@@ -22,7 +22,7 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends gcc g++ gcc-multilib g++-multilib git make ca-certificates
+          apt-get install -y --no-install-recommends gcc g++ gcc-multilib g++-multilib git make ca-certificates curl python3
 
       - uses: actions/checkout@v4
 
@@ -34,6 +34,19 @@ jobs:
           git clone --depth 1 -b 1.6-dev https://github.com/alliedmodders/sourcemod /sdk/sourcemod
           git clone --depth 1 -b 1.10-dev https://github.com/alliedmodders/metamod-source /sdk/mmsource
 
+      # SourceMod 1.13 refuses extensions older than API 9, so CS:S v34 servers on it need their own build.
+      # Same SourceMod tree as the fmu1337/sourcemod-css34 release: pinned commit plus its patch series.
+      - name: Fetch SourceMod 1.13 (CS:S v34)
+        env:
+          SM113_RELEASE: 1.13.0.7478-mm1.12.0-r3
+        run: |
+          git clone --depth 1 -b "$SM113_RELEASE" https://github.com/fmu1337/sourcemod-css34 /sdk/sourcemod-css34
+          SERIES=/sdk/sourcemod-css34/builder/patches/series/sm13-latest
+          COMMIT=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["commit"])' "$SERIES/series.json")
+          bash /sdk/sourcemod-css34/builder/fetch-sourcemod.sh /sdk/sourcemod-1.13 "$COMMIT"
+          bash /sdk/sourcemod-css34/builder/patches/apply-series.sh "$SERIES" /sdk/sourcemod-1.13
+          grep -E 'define SMINTERFACE_EXTENSIONAPI_VERSION' /sdk/sourcemod-1.13/public/IExtensionSys.h
+
       - name: Build
         run: |
           mkdir -p dist
@@ -43,10 +56,40 @@ jobs:
               PCMDS_REPOSITORY="$GITHUB_REPOSITORY" -j$(nproc)
             cp Release.$ENGINE/protectcmds.ext.so dist/protectcmds.$ENGINE.ext.so
           done
+          make ENGINE=css34 SMLINE=sm113 SMSDK=/sdk/sourcemod-1.13 MMSOURCE110=/sdk/mmsource \
+            HL2SDK_ORIG=/sdk/hl2sdk-episode1 PCMDS_REPOSITORY="$GITHUB_REPOSITORY" -j$(nproc)
+          cp Release.css34.sm113/protectcmds.ext.so dist/protectcmds.css34.sm113.ext.so
           cd dist
           for f in *.so; do sha256sum "$f" > "$f.sha256"; done
           ls -la
           cat *.sha256
+
+      # Extension API each build reports to SourceMod, and SteamID hashing identical to the v1.1.1 release
+      - name: Verify
+        env:
+          BASELINE_TAG: v1.1.1
+          BASELINE_SHA256: 865de8bc813e0e17a3f94bd46b0da9d77c162763d86c5597f72d02585e87b15f
+        run: |
+          mkdir -p /tmp/verify
+          curl -fsSL -o /tmp/verify/baseline.so \
+            "https://github.com/fmu1337/ProtectCMDS/releases/download/$BASELINE_TAG/protectcmds.css34.ext.so"
+          echo "$BASELINE_SHA256  /tmp/verify/baseline.so" | sha256sum -c -
+          g++ -m32 -O2 -Wall -o /tmp/verify/hashcheck tests/hashcheck.cpp -ldl
+          export LD_LIBRARY_PATH=/sdk/hl2sdk-episode1/linux_sdk
+
+          api() { /tmp/verify/hashcheck "$1" --api; }
+          echo "API: baseline $(api /tmp/verify/baseline.so), css34 $(api dist/protectcmds.css34.ext.so), css34.sm113 $(api dist/protectcmds.css34.sm113.ext.so)"
+          test "$(api dist/protectcmds.css34.ext.so)" = 7
+          API=$(api dist/protectcmds.css34.sm113.ext.so)
+          test "$API" -ge 9 && test "$API" -le 11
+
+          /tmp/verify/hashcheck /tmp/verify/baseline.so > /tmp/verify/baseline.txt
+          for so in protectcmds.css34.ext.so protectcmds.css34.sm113.ext.so; do
+            /tmp/verify/hashcheck "dist/$so" > "/tmp/verify/$so.txt"
+            cmp /tmp/verify/baseline.txt "/tmp/verify/$so.txt"
+            echo "$so: $(grep -vc '^salt' "/tmp/verify/$so.txt") hashes identical to $BASELINE_TAG"
+          done
+          sha256sum /tmp/verify/*.txt
 
       - uses: actions/upload-artifact@v4
         with:
