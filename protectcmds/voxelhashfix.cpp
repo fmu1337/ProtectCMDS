@@ -1,5 +1,4 @@
 #include <iostream>
-using namespace std;
 
 #include <CDetour/detours.h>
 #include <helpers/symbolmanager.h>
@@ -10,6 +9,8 @@ using namespace std;
 #include <vector.h>
 #include <ispatialpartition.h>
 #include <bitvec.h>
+
+using namespace std;
 
 union Voxel_t {
 	struct {
