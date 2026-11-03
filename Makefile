@@ -117,7 +117,7 @@ INCLUDE += -I. -I.. -Isdk -I$(SMSDK)/public -I$(SMSDK)/public/sourcepawn -I$(BEA
 # Newer SourceMod keeps SourcePawn and AMTL headers in submodules; 1.13 headers need C++17
 ifneq "$(wildcard $(SMSDK)/sourcepawn/include/sp_vm_api.h)" ""
 	INCLUDE += -I$(SMSDK)/sourcepawn/include -I$(SMSDK)/public/amtl -I$(SMSDK)/public/amtl/amtl
-	CPPFLAGS += -std=c++17
+	CPPFLAGS += -std=c++17 -Wno-register
 endif
 
 ifeq "$(USEMETA)" "true"
