@@ -98,6 +98,30 @@ jobs:
           done
           sha256sum /tmp/verify/*.txt
 
+      # protectcmds.inc must compile against the natives and forwards above (spcomp of the SM 1.13 package)
+      - name: Check include
+        run: |
+          mkdir -p /tmp/spcomp && cd /tmp/spcomp
+          base=https://github.com/fmu1337/sourcemod-css34/releases/download/line-sm13-latest
+          curl -fsSLO "$base/sourcemod-css34-linux.tar.gz" -O "$base/SHA256SUMS"
+          grep ' sourcemod-css34-linux.tar.gz$' SHA256SUMS | sha256sum -c -
+          tar -xzf sourcemod-css34-linux.tar.gz addons/sourcemod/scripting
+          SPCOMP=addons/sourcemod/scripting/spcomp64
+          [ -x "$SPCOMP" ] || SPCOMP=addons/sourcemod/scripting/spcomp
+          "$SPCOMP" "$GITHUB_WORKSPACE/tests/inc_test.sp" -i addons/sourcemod/scripting/include -i "$GITHUB_WORKSPACE/package/addons/sourcemod/scripting/include" -o /tmp/spcomp/inc_test.smx -E
+
+      # Ready-to-unpack archives for server owners: the .so with its configs, laid out as in cstrike/
+      - name: Package
+        run: |
+          for build in css34 css34.sm113 css; do
+            name=protectcmds-$(echo "$build" | tr . -)
+            mkdir -p "/tmp/pkg/$name"
+            cp -r package/addons "/tmp/pkg/$name/"
+            cp "dist/protectcmds.$build.ext.so" "/tmp/pkg/$name/addons/sourcemod/extensions/protectcmds.ext.so"
+            (cd "/tmp/pkg/$name" && python3 -m zipfile -c "$GITHUB_WORKSPACE/dist/$name.zip" addons)
+          done
+          python3 -m zipfile -l dist/protectcmds-css34-sm113.zip
+
       - uses: actions/upload-artifact@v4
         with:
           name: protectcmds
