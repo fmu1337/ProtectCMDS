@@ -35,14 +35,21 @@ jobs:
           git clone --depth 1 -b 1.10-dev https://github.com/alliedmodders/metamod-source /sdk/mmsource
 
       # SourceMod 1.13 refuses extensions older than API 9, so CS:S v34 servers on it need their own build.
-      # Same SourceMod tree as the fmu1337/sourcemod-css34 release: pinned commit plus its patch series.
+      # Same SourceMod tree as the current fmu1337/sourcemod-css34 sm13-latest release: pinned commit plus its
+      # patch series. The release comes from the line-sm13-latest pointer's lines.json (its git tag is not moved).
       - name: Fetch SourceMod 1.13 (CS:S v34)
         env:
-          SM113_RELEASE: 1.13.0.7478-mm1.12.0-r3
+          SM113_LINE: sm13-latest
         run: |
-          git clone --depth 1 -b "$SM113_RELEASE" https://github.com/fmu1337/sourcemod-css34 /sdk/sourcemod-css34
-          SERIES=/sdk/sourcemod-css34/builder/patches/series/sm13-latest
+          curl -fsSL -o /sdk/sm113-lines.json "https://github.com/fmu1337/sourcemod-css34/releases/download/line-$SM113_LINE/lines.json"
+          line() { python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))[sys.argv[2]][sys.argv[3]])' /sdk/sm113-lines.json "$SM113_LINE" "$1"; }
+          RELEASE=$(line tag)
+          echo "line-$SM113_LINE -> $RELEASE (SourceMod $(line sm_version) $(line sm_commit), API $(line extension_api_min)..$(line extension_api))"
+          { echo "SM113_API_MIN=$(line extension_api_min)"; echo "SM113_API_MAX=$(line extension_api)"; } >> "$GITHUB_ENV"
+          git clone --depth 1 -b "$RELEASE" https://github.com/fmu1337/sourcemod-css34 /sdk/sourcemod-css34
+          SERIES=/sdk/sourcemod-css34/builder/patches/series/$SM113_LINE
           COMMIT=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["commit"])' "$SERIES/series.json")
+          test "$COMMIT" = "$(line sm_commit)"
           bash /sdk/sourcemod-css34/builder/fetch-sourcemod.sh /sdk/sourcemod-1.13 "$COMMIT"
           bash /sdk/sourcemod-css34/builder/patches/apply-series.sh "$SERIES" /sdk/sourcemod-1.13
           grep -E 'define SMINTERFACE_EXTENSIONAPI_VERSION' /sdk/sourcemod-1.13/public/IExtensionSys.h
@@ -81,7 +88,7 @@ jobs:
           echo "API: baseline $(api /tmp/verify/baseline.so), css34 $(api dist/protectcmds.css34.ext.so), css34.sm113 $(api dist/protectcmds.css34.sm113.ext.so)"
           test "$(api dist/protectcmds.css34.ext.so)" = 7
           API=$(api dist/protectcmds.css34.sm113.ext.so)
-          test "$API" -ge 9 && test "$API" -le 11
+          test "$API" -ge "$SM113_API_MIN" && test "$API" -le "$SM113_API_MAX"
 
           /tmp/verify/hashcheck /tmp/verify/baseline.so > /tmp/verify/baseline.txt
           for so in protectcmds.css34.ext.so protectcmds.css34.sm113.ext.so; do
