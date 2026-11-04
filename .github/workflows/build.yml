@@ -63,9 +63,12 @@ jobs:
               PCMDS_REPOSITORY="$GITHUB_REPOSITORY" -j$(nproc)
             cp Release.$ENGINE/protectcmds.ext.so dist/protectcmds.$ENGINE.ext.so
           done
-          make ENGINE=css34 SMLINE=sm113 SMSDK=/sdk/sourcemod-1.13 MMSOURCE110=/sdk/mmsource \
-            HL2SDK_ORIG=/sdk/hl2sdk-episode1 PCMDS_REPOSITORY="$GITHUB_REPOSITORY" -j$(nproc)
-          cp Release.css34.sm113/protectcmds.ext.so dist/protectcmds.css34.sm113.ext.so
+          for ENGINE in css34 css; do
+            make ENGINE=$ENGINE SMLINE=sm113 SMSDK=/sdk/sourcemod-1.13 MMSOURCE110=/sdk/mmsource \
+              HL2SDK_ORIG=/sdk/hl2sdk-episode1 HL2SDK_CSS=/sdk/hl2sdk-css \
+              PCMDS_REPOSITORY="$GITHUB_REPOSITORY" -j$(nproc)
+            cp Release.$ENGINE.sm113/protectcmds.ext.so dist/protectcmds.$ENGINE.sm113.ext.so
+          done
           cd dist
           for f in *.so; do sha256sum "$f" > "$f.sha256"; done
           ls -la
@@ -73,28 +76,37 @@ jobs:
 
       # Extension API each build reports to SourceMod, and SteamID hashing identical to the v1.1.1 release
       - name: Verify
+        shell: bash
         env:
           BASELINE_TAG: v1.1.1
-          BASELINE_SHA256: 865de8bc813e0e17a3f94bd46b0da9d77c162763d86c5597f72d02585e87b15f
+          BASELINE_SHA256_css34: 865de8bc813e0e17a3f94bd46b0da9d77c162763d86c5597f72d02585e87b15f
+          BASELINE_SHA256_css: 43b86ed75ec99185589da1f0e57ecd49881d1ed4d71247c429adfd791fe9c5a3
         run: |
+          set -e
           mkdir -p /tmp/verify
-          curl -fsSL -o /tmp/verify/baseline.so \
-            "https://github.com/fmu1337/ProtectCMDS/releases/download/$BASELINE_TAG/protectcmds.css34.ext.so"
-          echo "$BASELINE_SHA256  /tmp/verify/baseline.so" | sha256sum -c -
           g++ -m32 -O2 -Wall -o /tmp/verify/hashcheck tests/hashcheck.cpp -ldl
-          export LD_LIBRARY_PATH=/sdk/hl2sdk-episode1/linux_sdk
-
           api() { /tmp/verify/hashcheck "$1" --api; }
-          echo "API: baseline $(api /tmp/verify/baseline.so), css34 $(api dist/protectcmds.css34.ext.so), css34.sm113 $(api dist/protectcmds.css34.sm113.ext.so)"
-          test "$(api dist/protectcmds.css34.ext.so)" = 7
-          API=$(api dist/protectcmds.css34.sm113.ext.so)
-          test "$API" -ge "$SM113_API_MIN" && test "$API" -le "$SM113_API_MAX"
 
-          /tmp/verify/hashcheck /tmp/verify/baseline.so > /tmp/verify/baseline.txt
-          for so in protectcmds.css34.ext.so protectcmds.css34.sm113.ext.so; do
-            /tmp/verify/hashcheck "dist/$so" > "/tmp/verify/$so.txt"
-            cmp /tmp/verify/baseline.txt "/tmp/verify/$so.txt"
-            echo "$so: $(grep -vc '^salt' "/tmp/verify/$so.txt") hashes identical to $BASELINE_TAG"
+          for ENGINE in css34 css; do
+            if [ $ENGINE = css34 ]; then export LD_LIBRARY_PATH=/sdk/hl2sdk-episode1/linux_sdk
+            else export LD_LIBRARY_PATH=/sdk/hl2sdk-css/lib/public/linux; fi
+            baseline=/tmp/verify/baseline.$ENGINE.so
+            sha=BASELINE_SHA256_$ENGINE
+            curl -fsSL -o $baseline \
+              "https://github.com/fmu1337/ProtectCMDS/releases/download/$BASELINE_TAG/protectcmds.$ENGINE.ext.so"
+            echo "${!sha}  $baseline" | sha256sum -c -
+
+            echo "API $ENGINE: baseline $(api $baseline), build $(api dist/protectcmds.$ENGINE.ext.so), sm113 $(api dist/protectcmds.$ENGINE.sm113.ext.so)"
+            test "$(api dist/protectcmds.$ENGINE.ext.so)" = 7
+            API=$(api dist/protectcmds.$ENGINE.sm113.ext.so)
+            test "$API" -ge "$SM113_API_MIN" && test "$API" -le "$SM113_API_MAX"
+
+            /tmp/verify/hashcheck $baseline > /tmp/verify/baseline.$ENGINE.txt
+            for so in protectcmds.$ENGINE.ext.so protectcmds.$ENGINE.sm113.ext.so; do
+              /tmp/verify/hashcheck "dist/$so" > "/tmp/verify/$so.txt"
+              cmp /tmp/verify/baseline.$ENGINE.txt "/tmp/verify/$so.txt"
+              echo "$so: $(grep -vc '^salt' "/tmp/verify/$so.txt") hashes identical to $BASELINE_TAG"
+            done
           done
           sha256sum /tmp/verify/*.txt
 
@@ -113,7 +125,7 @@ jobs:
       # Ready-to-unpack archives for server owners: the .so with its configs, laid out as in cstrike/
       - name: Package
         run: |
-          for build in css34 css34.sm113 css; do
+          for build in css34 css34.sm113 css css.sm113; do
             name=protectcmds-$(echo "$build" | tr . -)
             mkdir -p "/tmp/pkg/$name"
             cp -r package/addons "/tmp/pkg/$name/"
