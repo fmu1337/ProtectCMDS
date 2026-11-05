@@ -190,6 +190,9 @@ bool CProtectCMDS::SDK_OnLoad(char* error, size_t maxlength, bool late) {
 		m_pUpdater = new CPCMDSUpdater;
 		if (m_pUpdater) {
 			m_pUpdater->SetRepository(g_pSettings->GetString("Updater", "protectcmds_updater_repository", PCMDS_REPOSITORY));
+			//Left over from 1.0.10 configs: the old update server is not used
+			if (g_pSettings->HasValue("Updater", "protectcmds_updater_url"))
+				g_pSM->LogMessage(myself, "protectcmds_updater_url is ignored, updates come from GitHub releases (protectcmds_updater_repository)");
 			m_pUpdater->SetExperimental(g_pSettings->GetInteger("Updater", "protectcmds_updater_experimental", 0));
 			m_pUpdater->Load((void *)pExtensionManager);
 		}
