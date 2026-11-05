@@ -35,7 +35,7 @@ class CPCMDSUpdater {
 		bool IsLibraryLoaded(const char *pLibraryName);
 			
 		bool RemoveExtension(int iLibrary);
-		bool WriteExtension(int iLibrary, const std::string &sFile);
+		bool WriteExtension(int iLibrary, const std::string &sFile, const std::string &sSHA256);
 		
 	private:
 		std::string m_sRepository;

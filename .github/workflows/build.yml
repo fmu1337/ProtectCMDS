@@ -110,6 +110,14 @@ jobs:
           done
           sha256sum /tmp/verify/*.txt
 
+      # The updater must never write into the loaded .so: <file>.new, sha256, rename(), <file>.prev
+      - name: Updater file swap
+        run: |
+          g++ -m32 -O2 -Wall -I. -o /tmp/fileswap_test tests/fileswap_test.cpp updater/fileswap.cpp helpers/sha256.cpp -ldl
+          mkdir -p /tmp/fileswap
+          LD_LIBRARY_PATH=/sdk/hl2sdk-episode1/linux_sdk /tmp/fileswap_test \
+            dist/protectcmds.css34.ext.so dist/protectcmds.css34.sm113.ext.so /tmp/fileswap
+
       # protectcmds.inc must compile against the natives and forwards above (spcomp of the SM 1.13 package)
       - name: Check include
         run: |

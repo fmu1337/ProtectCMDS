@@ -7,6 +7,7 @@
 
 #include <IExtensionSys.h>
 #include "http.h"
+#include "fileswap.h"
 #include <helpers/sha256.h>
 #include <helpers/inireader.h>
 
@@ -103,26 +104,13 @@ bool CPCMDSUpdater::RemoveExtension(int iLibrary) {
 	return true;
 }
 
-bool CPCMDSUpdater::WriteExtension(int iLibrary, const string &sFile) {
-	string sTempFile = g_sLibraryPath[iLibrary];
-	sTempFile.append(".tmp");
-	
-	FILE *pFile = fopen(sTempFile.c_str(), "wb");
-	if (!pFile) {
-		g_pSM->LogError(myself, "Failed to open: %s", sTempFile.c_str());
-		
-		return false;
-	}
-	
-	bool bWritten = fwrite(sFile.c_str(), 1, sFile.length(), pFile) == sFile.length();
-	if (fclose(pFile)) bWritten = false;
-	
-	//rename() replaces the loaded library atomically, the running copy stays mapped
-	if (bWritten && !rename(sTempFile.c_str(), g_sLibraryPath[iLibrary])) return true;
-	
-	remove(sTempFile.c_str());
-	g_pSM->LogError(myself, "Failed to write extension: %s", g_sLibraryPath[iLibrary]);
-	
+bool CPCMDSUpdater::WriteExtension(int iLibrary, const string &sFile, const string &sSHA256) {
+	//Never write into the loaded library: <file>.new, checked, then rename() over it; the old one stays as <file>.prev
+	string sError;
+	if (ReplaceFileAtomic(g_sLibraryPath[iLibrary], sFile, sSHA256, sError)) return true;
+
+	g_pSM->LogError(myself, "Failed to write extension: %s", sError.c_str());
+
 	return false;
 }
 
@@ -177,9 +165,9 @@ void CPCMDSUpdater::CheckUpdates(int iLibrary) {
 	//Old EP1/EP2 libraries are replaced by protectcmds.ext.so
 	if (iLibrary != LAST && !RemoveExtension(iLibrary)) return;
 	
-	if (!WriteExtension(LAST, sFile)) return;
-	
-	g_pSM->LogMessage(myself, "Successfully updated [%s]", g_sUpdateExtension[iLibrary]);
+	if (!WriteExtension(LAST, sFile, sReleaseHash)) return;
+
+	g_pSM->LogMessage(myself, "Successfully updated [%s], previous version kept as %s.prev", g_sUpdateExtension[iLibrary], g_sLibraryPath[LAST]);
 	g_pSM->LogMessage(myself, "Please, restart this server for load updated extension!");
 }
 
