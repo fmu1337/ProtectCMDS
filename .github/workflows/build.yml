@@ -74,6 +74,18 @@ jobs:
           ls -la
           cat *.sha256
 
+      # FilterPacket's recvfrom hook and its per-IP statistics, called directly in each built .so
+      - name: Packet statistics
+        run: |
+          g++ -m32 -O2 -Wall -o /tmp/packetstats_test tests/packetstats_test.cpp -ldl
+          for so in css34 css34.sm113 css css.sm113; do
+            case $so in
+              css34*) ENGINE=css34; LIBS=/sdk/hl2sdk-episode1/linux_sdk ;;
+              *) ENGINE=css; LIBS=/sdk/hl2sdk-css/lib/public/linux ;;
+            esac
+            LD_LIBRARY_PATH=$LIBS /tmp/packetstats_test dist/protectcmds.$so.ext.so $ENGINE
+          done
+
       # Extension API each build reports to SourceMod, and SteamID hashing identical to the v1.1.1 release
       - name: Verify
         shell: bash

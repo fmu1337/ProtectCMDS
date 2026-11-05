@@ -28,18 +28,11 @@ typedef struct netpacket_s
 	struct netpacket_s *pNext;	// for internal use, should be NULL in public
 } netpacket_t;
 
-struct PacketCount {
-	unsigned long ip;
-	int iCountPacket;
-	int fLastTimePacket;
-};
-
 class CFilterPacket : public IFix {
 	public:
 		void Load();
 		void Unload();
 };
 
-bool IsPacketsFlood(unsigned int ip, char *pIP);
 
 #endif

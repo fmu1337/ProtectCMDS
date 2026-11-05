@@ -21,7 +21,7 @@ USEMETA = true
 
 OBJECTS = sdk/smsdk_ext.cpp extension.cpp helpers/util.cpp CDetour/detours.cpp asm/asm.c
 OBJECTS += helpers/symbolmanager.cpp helpers/strtools.cpp helpers/sha256.cpp protectcmds/ifix.cpp
-OBJECTS += helpers/inireader.cpp helpers/ini.c
+OBJECTS += helpers/inireader.cpp helpers/ini.c helpers/rootconsole.cpp protectcmds/packetstats.cpp
 OBJECTS += updater/updater.cpp updater/http.cpp
 
 BEARSSL = third_party/bearssl
