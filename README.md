@@ -27,7 +27,7 @@
 
 ## ProcessCmds
 
-ProtectCMDS не работает вместе с ProcessCmds: оба перехватывают одни и те же функции движка, и сервер падает. Если в процессе сервера загружена библиотека ProcessCmds (`processcmds.ext.*.so` или Metamod-плагин `processcmds_mm_*.so`), ProtectCMDS не запускается:
+ProtectCMDS не работает вместе с ProcessCmds: оба перехватывают одни и те же функции движка, и сервер падает. Если в процессе сервера загружена библиотека ProcessCmds (любой файл с именем на `processcmds`, на CS:S это расширение SourceMod `processcmds.ext.*.so`), ProtectCMDS не запускается:
 
 - ProcessCmds уже загружен — ProtectCMDS не загружается, в `sm exts list` видна ошибка `processcmds.ext.1.ep1.so is loaded: ProtectCMDS conflicts with ProcessCmds and does not start`;
 - ProcessCmds загрузился после ProtectCMDS при старте сервера — ProtectCMDS снимает свои перехваты, пишет ту же ошибку в лог SourceMod и в `sm exts list` значится неработающим;

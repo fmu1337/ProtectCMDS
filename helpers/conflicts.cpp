@@ -4,8 +4,8 @@
 #include <string.h>
 #include <strings.h>
 
-// File name prefixes of conflicting libraries. ProcessCmds ships as a SourceMod extension
-// (processcmds.ext.1.ep1.so, processcmds.ext.so, ...) and as a Metamod plugin (processcmds_mm_i386.so).
+// File name prefixes of conflicting libraries. On CS:S ProcessCmds is a SourceMod extension
+// (processcmds.ext.1.ep1.so, processcmds.ext.so, ...); the prefix covers any other file name it may use.
 static const char *g_sConflictPrefixes[] = {
 	"processcmds"
 };

@@ -1,11 +1,11 @@
-// FindConflictingModule must see ProcessCmds' libraries (SourceMod extension and Metamod plugin) while they are
-// loaded, and nothing else - in particular not ProtectCMDS itself.
+// FindConflictingModule must see ProcessCmds' extension under any of its file names while it is loaded, and
+// nothing else - in particular not ProtectCMDS itself.
 //
 //   gcc -m32 -shared -fPIC -o <dir>/processcmds.ext.1.ep1.so tests/conflicts_dummy.c   (same for the names below)
 //   g++ -m32 -I. -o conflicts_test tests/conflicts_test.cpp helpers/conflicts.cpp -ldl
 //   ./conflicts_test <dir>
 //
-// <dir> holds copies of the dummy as processcmds.ext.1.ep1.so, PROCESSCMDS_MM_I386.so and protectcmds.ext.so.
+// <dir> holds copies of the dummy as processcmds.ext.1.ep1.so, ProcessCmds.ext.so and protectcmds.ext.so.
 
 #include <dlfcn.h>
 #include <stdio.h>
@@ -53,11 +53,11 @@ int main(int argc, char **argv) {
 	if (pExt) dlclose(pExt);
 	Check(!FindConflictingModule(szName, sizeof(szName)), "nothing found after ProcessCmds is unloaded");
 
-	void *pMM = Open(sDir + "/PROCESSCMDS_MM_I386.so");
-	Check(pMM && FindConflictingModule(szName, sizeof(szName)) && !strcmp(szName, "PROCESSCMDS_MM_I386.so"),
-		"the Metamod plugin is found, letter case ignored");
+	void *pOther = Open(sDir + "/ProcessCmds.ext.so");
+	Check(pOther && FindConflictingModule(szName, sizeof(szName)) && !strcmp(szName, "ProcessCmds.ext.so"),
+		"another file name is found, letter case ignored");
 
-	if (pMM) dlclose(pMM);
+	if (pOther) dlclose(pOther);
 	if (pOwn) dlclose(pOwn);
 
 	printf(g_iFailed ? "%d check(s) failed\n" : "all checks passed\n", g_iFailed);

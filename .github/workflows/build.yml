@@ -134,7 +134,7 @@ jobs:
       - name: ProcessCmds conflict check
         run: |
           mkdir -p /tmp/conflicts
-          for n in processcmds.ext.1.ep1.so PROCESSCMDS_MM_I386.so protectcmds.ext.so; do
+          for n in processcmds.ext.1.ep1.so ProcessCmds.ext.so protectcmds.ext.so; do
             gcc -m32 -shared -fPIC -o /tmp/conflicts/$n tests/conflicts_dummy.c
           done
           g++ -m32 -O2 -Wall -I. -o /tmp/conflicts_test tests/conflicts_test.cpp helpers/conflicts.cpp -ldl
