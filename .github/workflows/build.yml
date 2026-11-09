@@ -130,6 +130,16 @@ jobs:
           LD_LIBRARY_PATH=/sdk/hl2sdk-episode1/linux_sdk /tmp/fileswap_test \
             dist/protectcmds.css34.ext.so dist/protectcmds.css34.sm113.ext.so /tmp/fileswap
 
+      # ProtectCMDS does not start next to ProcessCmds: its libraries must be found by file name, ours must not
+      - name: ProcessCmds conflict check
+        run: |
+          mkdir -p /tmp/conflicts
+          for n in processcmds.ext.1.ep1.so PROCESSCMDS_MM_I386.so protectcmds.ext.so; do
+            gcc -m32 -shared -fPIC -o /tmp/conflicts/$n tests/conflicts_dummy.c
+          done
+          g++ -m32 -O2 -Wall -I. -o /tmp/conflicts_test tests/conflicts_test.cpp helpers/conflicts.cpp -ldl
+          /tmp/conflicts_test /tmp/conflicts
+
       # protectcmds.inc must compile against the natives and forwards above (spcomp of the SM 1.13 package)
       - name: Check include
         run: |

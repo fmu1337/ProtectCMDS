@@ -44,6 +44,11 @@ EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CProtectCMDS, IProtectCMDS, INTERFACE_PROTECTC
 
 char g_cPrefix[] = "[ProtectCMDS]";
 
+// ProcessCmds hooks the same engine functions: with both loaded the server crashes, so ProtectCMDS does not start
+static char g_szConflict[256];
+
+#define CONFLICT_MESSAGE "%s is loaded: ProtectCMDS conflicts with ProcessCmds and does not start. Remove one of them."
+
 #include <tier1/interface.h>
 #ifdef ENGINE_CSS34
 #include <dlls/iplayerinfo.h>
@@ -57,6 +62,7 @@ CGlobalVars* g_pGlobals = nullptr;
 
 #include "helpers/symbolmanager.h"
 #include "helpers/inireader.h"
+#include "helpers/conflicts.h"
 #include "CDetour/detours.h"
 #include "helpers/util.h"
 
@@ -149,6 +155,14 @@ bool CProtectCMDS::LoadSettings() {
 }
 
 void CProtectCMDS::OnCoreMapStart(edict_t *pEdictList, int edictCount, int clientMax) {
+	// ProcessCmds loaded by hand after our hooks went in: its hooks may sit on top of ours, so taking ours off
+	// is not safe any more. Say it loudly; the fix is a restart without ProcessCmds.
+	static bool bWarned = false;
+	if (!m_bConflict && !bWarned && FindConflictingModule(g_szConflict, sizeof(g_szConflict))) {
+		g_pSM->LogError(myself, "%s was loaded after ProtectCMDS started: they conflict, restart the server without ProcessCmds", g_szConflict);
+		bWarned = true;
+	}
+
 	if (m_pBlockCmds) m_pBlockCmds->OnMapStart();
 	if (m_pVoiceFix) m_pVoiceFix->OnMapStart();
 }
@@ -163,6 +177,12 @@ cell_t GetAbsoluteFrameTime(IPluginContext *pContext, const cell_t *params) {
 }
 
 bool CProtectCMDS::SDK_OnLoad(char* error, size_t maxlength, bool late) {
+	if (FindConflictingModule(g_szConflict, sizeof(g_szConflict)))
+	{
+		Q_snprintf(error, maxlength, CONFLICT_MESSAGE, g_szConflict);
+		return false;
+	}
+
 	if (!LoadLibraries())
 	{
 		Q_snprintf(error, maxlength, "Failed to load libraries");
@@ -212,7 +232,20 @@ bool CProtectCMDS::SDK_OnLoad(char* error, size_t maxlength, bool late) {
 	return true;
 }
 
-void CProtectCMDS::SDK_OnAllLoaded() {	
+void CProtectCMDS::SDK_OnAllLoaded() {
+	// ProcessCmds loaded after us. It installs its hooks later, from GameFrame (seen in 1.0.9), so taking ours
+	// off is still safe here
+	if (FindConflictingModule(g_szConflict, sizeof(g_szConflict))) {
+		g_pSM->LogError(myself, CONFLICT_MESSAGE, g_szConflict);
+
+		// Unload() can run again from SDK_OnUnload: every step checks what is still installed
+		if (m_pFilterPacket) m_pFilterPacket->Unload();
+
+		m_bConflict = true;
+
+		return;
+	}
+
 	if (g_pSettings->GetInteger("BlockCmds", "blockcmds_enable", 1)) {
 		m_pBlockCmds = new CBlockCmds;
 		if (m_pBlockCmds) {
@@ -347,6 +380,15 @@ void CProtectCMDS::SDK_OnUnload() {
 	}
 	
 	g_pSM->LogMessage(myself, "Unloaded");
+}
+
+bool CProtectCMDS::QueryRunning(char *error, size_t maxlength) {
+	if (m_bConflict) {
+		Q_snprintf(error, maxlength, CONFLICT_MESSAGE, g_szConflict);
+		return false;
+	}
+
+	return true;
 }
 
 void *CProtectCMDS::GetExtensionPtr() {

@@ -114,7 +114,7 @@ public:
 	 * @param maxlength	Size of error message buffer.
 	 * @return			True if working, false otherwise.
 	 */
-	//virtual bool QueryRunning(char *error, size_t maxlength);
+	virtual bool QueryRunning(char *error, size_t maxlength);
 public:
 #if defined SMEXT_CONF_METAMOD
 	/**
@@ -152,6 +152,7 @@ public: // IPluginsListener
 	//virtual void OnPluginLoaded(IPlugin *plugin);
 	//virtual void OnPluginUnloaded(IPlugin *plugin);
 private:
+	bool m_bConflict							=	false;	// ProcessCmds found in SDK_OnAllLoaded: nothing started
 	CNameFix *m_pNameFix						=	nullptr;
 	CPCMDSUpdater *m_pUpdater					=	nullptr;
 	CFilterPacket *m_pFilterPacket 				= 	nullptr;	

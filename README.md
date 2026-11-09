@@ -25,6 +25,16 @@
 
 Без `data/protectcmds/protectcmds.ini` (или с `protectcmds_enable=0`) расширение не загружается: `Failed to load settings`.
 
+## ProcessCmds
+
+ProtectCMDS не работает вместе с ProcessCmds: оба перехватывают одни и те же функции движка, и сервер падает. Если в процессе сервера загружена библиотека ProcessCmds (`processcmds.ext.*.so` или Metamod-плагин `processcmds_mm_*.so`), ProtectCMDS не запускается:
+
+- ProcessCmds уже загружен — ProtectCMDS не загружается, в `sm exts list` видна ошибка `processcmds.ext.1.ep1.so is loaded: ProtectCMDS conflicts with ProcessCmds and does not start`;
+- ProcessCmds загрузился после ProtectCMDS при старте сервера — ProtectCMDS снимает свои перехваты, пишет ту же ошибку в лог SourceMod и в `sm exts list` значится неработающим;
+- ProcessCmds загружен вручную (`sm exts load`) на уже работающем сервере — ProtectCMDS снять перехваты уже не может и на ближайшей смене карты пишет ошибку в лог: перезапустите сервер без ProcessCmds.
+
+Оставьте одно из двух расширений. `preload_x86.so` из комплекта ProcessCmds на запуск ProtectCMDS не влияет.
+
 ## Хеширование SteamID
 
 Модуль `SteamIDHashing` выключен по умолчанию (`steamidhashing_enable=0`). Включенный, он заменяет SteamID каждого игрока на хеш от SteamID и соли. Прежде чем включать:
