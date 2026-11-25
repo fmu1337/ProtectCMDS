@@ -117,6 +117,8 @@ static uint32_t GetSenderIP(const struct sockaddr *from) {
 	return ((const struct sockaddr_in *)from)->sin_addr.s_addr;
 }
 
+// The recvfrom hook (g_pVCR->Hook_recvfrom), the empty packet fix and the per-IP counters shown by
+// "sm protectcmds packets" follow DoS Protect by ZombieX2.net (dosp_status); written anew, not copied.
 int RecvFromHook(int s, char *buf, int len, int flags, struct sockaddr *from, int *fromlen) {
 	int iRet = g_pRealRecvFrom(s, buf, len, flags, from, fromlen);
 
