@@ -86,10 +86,12 @@ jobs:
             LD_LIBRARY_PATH=$LIBS /tmp/packetstats_test dist/protectcmds.$so.ext.so $ENGINE
           done
 
-      # Extension API each build reports to SourceMod, and SteamID hashing identical to the v1.1.1 release
+      # Extension API each build reports to SourceMod, and SteamID hashing identical to a fixed reference release
       - name: Verify
         shell: bash
         env:
+          # Fixed reference build: SteamID hashes must never change between versions
+          BASELINE_REPO: fmu1337/ProtectCMDS
           BASELINE_TAG: v1.1.1
           BASELINE_SHA256_css34: 865de8bc813e0e17a3f94bd46b0da9d77c162763d86c5597f72d02585e87b15f
           BASELINE_SHA256_css: 43b86ed75ec99185589da1f0e57ecd49881d1ed4d71247c429adfd791fe9c5a3
@@ -105,7 +107,7 @@ jobs:
             baseline=/tmp/verify/baseline.$ENGINE.so
             sha=BASELINE_SHA256_$ENGINE
             curl -fsSL -o $baseline \
-              "https://github.com/fmu1337/ProtectCMDS/releases/download/$BASELINE_TAG/protectcmds.$ENGINE.ext.so"
+              "https://github.com/$BASELINE_REPO/releases/download/$BASELINE_TAG/protectcmds.$ENGINE.ext.so"
             echo "${!sha}  $baseline" | sha256sum -c -
 
             echo "API $ENGINE: baseline $(api $baseline), build $(api dist/protectcmds.$ENGINE.ext.so), sm113 $(api dist/protectcmds.$ENGINE.sm113.ext.so)"

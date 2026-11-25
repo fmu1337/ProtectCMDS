@@ -5,9 +5,10 @@
 
 #include <string>
 
-//GitHub repository with releases, CI passes its own (forks update from themselves)
+//GitHub repository with releases. CI passes the repository it builds in (a fork updates from its own releases),
+//this default is for builds made outside CI
 #ifndef PCMDS_REPOSITORY
-#define PCMDS_REPOSITORY "fmu1337/protectcmds"
+#define PCMDS_REPOSITORY "WeSTManCoder/ProtectCMDS"
 #endif
 
 class CPCMDSUpdater {
