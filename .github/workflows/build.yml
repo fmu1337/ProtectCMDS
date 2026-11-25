@@ -86,13 +86,14 @@ jobs:
             LD_LIBRARY_PATH=$LIBS /tmp/packetstats_test dist/protectcmds.$so.ext.so $ENGINE
           done
 
-      # Extension API each build reports to SourceMod, and SteamID hashing identical to the v1.1.1 release
+      # Extension API each build reports to SourceMod, and SteamID hashing that never changes between versions
       - name: Verify
         shell: bash
         env:
-          BASELINE_TAG: v1.1.1
-          BASELINE_SHA256_css34: 865de8bc813e0e17a3f94bd46b0da9d77c162763d86c5597f72d02585e87b15f
-          BASELINE_SHA256_css: 43b86ed75ec99185589da1f0e57ecd49881d1ed4d71247c429adfd791fe9c5a3
+          # sha256 of tests/hashcheck output (8 test salts x 20000 SteamIDs), the same for css34 and css.
+          # Taken from the v1.1.1 release builds. If it changes, every player's hashed SteamID changes with it
+          # (admins, bans, stats): do not update it unless that is intended.
+          HASHCHECK_SHA256: ff492b762ffb5a72896d0532a7e9d408a29f2adb21ba4973c89619c8bfc9e241
         run: |
           set -e
           mkdir -p /tmp/verify
@@ -102,25 +103,18 @@ jobs:
           for ENGINE in css34 css; do
             if [ $ENGINE = css34 ]; then export LD_LIBRARY_PATH=/sdk/hl2sdk-episode1/linux_sdk
             else export LD_LIBRARY_PATH=/sdk/hl2sdk-css/lib/public/linux; fi
-            baseline=/tmp/verify/baseline.$ENGINE.so
-            sha=BASELINE_SHA256_$ENGINE
-            curl -fsSL -o $baseline \
-              "https://github.com/fmu1337/ProtectCMDS/releases/download/$BASELINE_TAG/protectcmds.$ENGINE.ext.so"
-            echo "${!sha}  $baseline" | sha256sum -c -
 
-            echo "API $ENGINE: baseline $(api $baseline), build $(api dist/protectcmds.$ENGINE.ext.so), sm113 $(api dist/protectcmds.$ENGINE.sm113.ext.so)"
+            echo "API $ENGINE: build $(api dist/protectcmds.$ENGINE.ext.so), sm113 $(api dist/protectcmds.$ENGINE.sm113.ext.so)"
             test "$(api dist/protectcmds.$ENGINE.ext.so)" = 7
             API=$(api dist/protectcmds.$ENGINE.sm113.ext.so)
             test "$API" -ge "$SM113_API_MIN" && test "$API" -le "$SM113_API_MAX"
 
-            /tmp/verify/hashcheck $baseline > /tmp/verify/baseline.$ENGINE.txt
             for so in protectcmds.$ENGINE.ext.so protectcmds.$ENGINE.sm113.ext.so; do
               /tmp/verify/hashcheck "dist/$so" > "/tmp/verify/$so.txt"
-              cmp /tmp/verify/baseline.$ENGINE.txt "/tmp/verify/$so.txt"
-              echo "$so: $(grep -vc '^salt' "/tmp/verify/$so.txt") hashes identical to $BASELINE_TAG"
+              echo "$HASHCHECK_SHA256  /tmp/verify/$so.txt" | sha256sum -c -
+              echo "$so: $(grep -vc '^salt' "/tmp/verify/$so.txt") SteamID hashes unchanged"
             done
           done
-          sha256sum /tmp/verify/*.txt
 
       # The updater must never write into the loaded .so: <file>.new, sha256, rename(), <file>.prev
       - name: Updater file swap
