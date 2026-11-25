@@ -13,7 +13,8 @@ enum EPacketStat {
 	PacketStat_Max
 };
 
-// Per-IP counters of packets FilterPacket rewrites or drops. Fixed-size table and no allocations:
+// Per-IP counters of packets FilterPacket rewrites or drops, after dosp_status of DoS Protect (ZombieX2.net).
+// Fixed-size table and no allocations:
 // Add() runs inside the recvfrom hook, though only for those packets, not for normal traffic.
 class CPacketStats {
 	public:
