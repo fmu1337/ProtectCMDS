@@ -219,7 +219,7 @@ bool CHashingSteamID::LoadSalt(char *szPath) {
 	int nFileSize = ftell(pFile);
 	fseek(pFile, 0L, SEEK_SET);
 	
-	g_sSalt.resize(clamp(nFileSize, 0, SALT_BIT/8));
+	g_sSalt.resize(::clamp(nFileSize, 0, SALT_BIT/8));
 	
 	if(g_sSalt.capacity() > 0)
 	{

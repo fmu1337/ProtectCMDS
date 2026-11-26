@@ -2,6 +2,10 @@ Debug.css/
 Release.css/
 Debug.css34/
 Release.css34/
+Debug.css34.*/
+Release.css34.*/
+Debug.css.*/
+Release.css.*/
 *.so
 
 .vscode
