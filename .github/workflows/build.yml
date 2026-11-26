@@ -1,0 +1,187 @@
+name: Build
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Same base as .devcontainer: older glibc/libstdc++ keeps the .so loadable on older servers
+    container: ubuntu:20.04
+    steps:
+      - name: Install toolchain
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends gcc g++ gcc-multilib g++-multilib git make ca-certificates curl python3
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # tags for the version string
+
+      # v1.2.0 -> 1.2.0, v1.2.0-3-gabc1234 between tags; no tag -> version from sdk/smsdk_config.h
+      - name: Version
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          VER=$(git describe --tags --match 'v[0-9]*' 2>/dev/null | sed 's/^v//') || true
+          echo "Version: ${VER:-from smsdk_config.h}"
+          echo "PCMDS_VERSION=$VER" >> "$GITHUB_ENV"
+
+      - name: Fetch SDKs
+        run: |
+          mkdir -p /sdk
+          git clone --depth 1 -b episode1 https://github.com/alliedmodders/hl2sdk /sdk/hl2sdk-episode1
+          git clone --depth 1 -b css https://github.com/alliedmodders/hl2sdk /sdk/hl2sdk-css
+          git clone --depth 1 -b 1.6-dev https://github.com/alliedmodders/sourcemod /sdk/sourcemod
+          git clone --depth 1 -b 1.10-dev https://github.com/alliedmodders/metamod-source /sdk/mmsource
+
+      # SourceMod 1.13 refuses extensions older than API 9, so servers on it need their own build.
+      # Pinned commit of alliedmodders/sourcemod 1.13-dev: the extension API does not move under the build.
+      - name: Fetch SourceMod 1.13
+        env:
+          SM113_COMMIT: a830fd1dd6f69f57a6cd774eec883307a70a889b
+        run: |
+          git init -q /sdk/sourcemod-1.13
+          cd /sdk/sourcemod-1.13
+          git remote add origin https://github.com/alliedmodders/sourcemod
+          git fetch -q --depth 1 origin "$SM113_COMMIT"
+          git checkout -q FETCH_HEAD
+          git submodule update -q --init --recursive --depth 1
+          API=$(sed -nE 's/^#define SMINTERFACE_EXTENSIONAPI_VERSION[[:space:]]+([0-9]+).*/\1/p' public/IExtensionSys.h)
+          echo "SourceMod 1.13 $SM113_COMMIT, extension API $API"
+          echo "SM113_API=$API" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: |
+          mkdir -p dist
+          for ENGINE in css34 css; do
+            make ENGINE=$ENGINE SMSDK=/sdk/sourcemod MMSOURCE110=/sdk/mmsource \
+              HL2SDK_ORIG=/sdk/hl2sdk-episode1 HL2SDK_CSS=/sdk/hl2sdk-css \
+              PCMDS_REPOSITORY="$GITHUB_REPOSITORY" PCMDS_VERSION="$PCMDS_VERSION" -j$(nproc)
+            cp Release.$ENGINE/protectcmds.ext.so dist/protectcmds.$ENGINE.ext.so
+          done
+          for ENGINE in css34 css; do
+            make ENGINE=$ENGINE SMLINE=sm113 SMSDK=/sdk/sourcemod-1.13 MMSOURCE110=/sdk/mmsource \
+              HL2SDK_ORIG=/sdk/hl2sdk-episode1 HL2SDK_CSS=/sdk/hl2sdk-css \
+              PCMDS_REPOSITORY="$GITHUB_REPOSITORY" PCMDS_VERSION="$PCMDS_VERSION" -j$(nproc)
+            cp Release.$ENGINE.sm113/protectcmds.ext.so dist/protectcmds.$ENGINE.sm113.ext.so
+          done
+          cd dist
+          for f in *.so; do sha256sum "$f" > "$f.sha256"; done
+          ls -la
+          cat *.sha256
+
+      # FilterPacket's recvfrom hook and its per-IP statistics, called directly in each built .so
+      - name: Packet statistics
+        run: |
+          g++ -m32 -O2 -Wall -o /tmp/packetstats_test tests/packetstats_test.cpp -ldl
+          for so in css34 css34.sm113 css css.sm113; do
+            case $so in
+              css34*) ENGINE=css34; LIBS=/sdk/hl2sdk-episode1/linux_sdk ;;
+              *) ENGINE=css; LIBS=/sdk/hl2sdk-css/lib/public/linux ;;
+            esac
+            LD_LIBRARY_PATH=$LIBS /tmp/packetstats_test dist/protectcmds.$so.ext.so $ENGINE
+          done
+
+      # Extension API each build reports to SourceMod, and SteamID hashing that never changes between versions
+      - name: Verify
+        shell: bash
+        env:
+          # sha256 of tests/hashcheck output (8 test salts x 20000 SteamIDs), the same for css34 and css.
+          # Taken from the v1.1.1 release builds. If it changes, every player's hashed SteamID changes with it
+          # (admins, bans, stats): do not update it unless that is intended.
+          HASHCHECK_SHA256: ff492b762ffb5a72896d0532a7e9d408a29f2adb21ba4973c89619c8bfc9e241
+        run: |
+          set -e
+          mkdir -p /tmp/verify
+          g++ -m32 -O2 -Wall -o /tmp/verify/hashcheck tests/hashcheck.cpp -ldl
+          api() { /tmp/verify/hashcheck "$1" --api; }
+
+          for ENGINE in css34 css; do
+            if [ $ENGINE = css34 ]; then export LD_LIBRARY_PATH=/sdk/hl2sdk-episode1/linux_sdk
+            else export LD_LIBRARY_PATH=/sdk/hl2sdk-css/lib/public/linux; fi
+
+            echo "API $ENGINE: build $(api dist/protectcmds.$ENGINE.ext.so), sm113 $(api dist/protectcmds.$ENGINE.sm113.ext.so)"
+            test "$(api dist/protectcmds.$ENGINE.ext.so)" = 7
+            test "$(api dist/protectcmds.$ENGINE.sm113.ext.so)" = "$SM113_API"
+
+            for so in protectcmds.$ENGINE.ext.so protectcmds.$ENGINE.sm113.ext.so; do
+              /tmp/verify/hashcheck "dist/$so" > "/tmp/verify/$so.txt"
+              echo "$HASHCHECK_SHA256  /tmp/verify/$so.txt" | sha256sum -c -
+              echo "$so: $(grep -vc '^salt' "/tmp/verify/$so.txt") SteamID hashes unchanged"
+            done
+          done
+
+      # The updater must never write into the loaded .so: <file>.new, sha256, rename(), <file>.prev
+      - name: Updater file swap
+        run: |
+          g++ -m32 -O2 -Wall -I. -o /tmp/fileswap_test tests/fileswap_test.cpp updater/fileswap.cpp helpers/sha256.cpp -ldl
+          mkdir -p /tmp/fileswap
+          LD_LIBRARY_PATH=/sdk/hl2sdk-episode1/linux_sdk /tmp/fileswap_test \
+            dist/protectcmds.css34.ext.so dist/protectcmds.css34.sm113.ext.so /tmp/fileswap
+
+      # protectcmds.inc must compile against the natives and forwards above (spcomp of the official SourceMod 1.12)
+      - name: Check include
+        run: |
+          mkdir -p /tmp/spcomp && cd /tmp/spcomp
+          SM=$(curl -fsSL https://sm.alliedmods.net/smdrop/1.12/sourcemod-latest-linux)
+          echo "spcomp from $SM"
+          curl -fsSL -o sm.tar.gz "https://sm.alliedmods.net/smdrop/1.12/$SM"
+          tar -xzf sm.tar.gz addons/sourcemod/scripting
+          SPCOMP=addons/sourcemod/scripting/spcomp64
+          [ -x "$SPCOMP" ] || SPCOMP=addons/sourcemod/scripting/spcomp
+          "$SPCOMP" "$GITHUB_WORKSPACE/tests/inc_test.sp" -i addons/sourcemod/scripting/include -i "$GITHUB_WORKSPACE/package/addons/sourcemod/scripting/include" -o /tmp/spcomp/inc_test.smx -E
+
+      # Ready-to-unpack archives for server owners: the .so with its configs, laid out as in cstrike/
+      - name: Package
+        run: |
+          for build in css34 css34.sm113 css css.sm113; do
+            name=protectcmds-$(echo "$build" | tr . -)
+            mkdir -p "/tmp/pkg/$name"
+            cp -r package/addons "/tmp/pkg/$name/"
+            cp "dist/protectcmds.$build.ext.so" "/tmp/pkg/$name/addons/sourcemod/extensions/protectcmds.ext.so"
+            (cd "/tmp/pkg/$name" && python3 -m zipfile -c "$GITHUB_WORKSPACE/dist/$name.zip" addons)
+          done
+          python3 -m zipfile -l dist/protectcmds-css34-sm113.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: protectcmds
+          path: dist/
+
+  release:
+    needs: build
+    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: protectcmds
+          path: dist
+
+      # Stable channel: updater uses releases/latest/download/...
+      - name: Stable release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes
+
+      # Experimental channel: updater uses releases/download/experimental/...
+      - name: Experimental release
+        if: github.ref == 'refs/heads/master'
+        run: |
+          gh release delete experimental --cleanup-tag --yes || true
+          gh release create experimental dist/* --prerelease --target "$GITHUB_SHA" \
+            --title "Experimental" --notes "Automatic build of $GITHUB_SHA"

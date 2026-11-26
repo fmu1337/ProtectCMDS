@@ -1,0 +1,72 @@
+# ProtectCMDS
+
+Расширение SourceMod для защиты сервера CS:S от эксплоитов: фильтрация кривых пакетов, блокировка опасных команд, фикс голосового чата, хеширование SteamID и фиксы крашей движка. Собирается в GitHub Actions, обновляется автоматически из релизов репозитория, в котором собран.
+
+Только Linux.
+
+## Какой архив скачать
+
+В [релизах](../../releases/latest) лежат готовые архивы:
+
+| Архив | Игра | SourceMod |
+|---|---|---|
+| `protectcmds-css34.zip` | CS:S v34 | 1.7 – 1.12 |
+| `protectcmds-css34-sm113.zip` | CS:S v34 | 1.13 и новее |
+| `protectcmds-css.zip` | CS:S (Steam) | 1.7 – 1.12 |
+| `protectcmds-css-sm113.zip` | CS:S (Steam) | 1.13 и новее |
+
+## Установка
+
+1. Распакуйте архив в папку `cstrike` сервера (внутри архива `addons/sourcemod/...`):
+   - `extensions/protectcmds.ext.so` и `extensions/protectcmds.autoload`
+   - `data/protectcmds/protectcmds.ini`, `blockcmds.txt`, `steamid_hash.txt`
+   - `scripting/include/protectcmds.inc` (только для разработчиков плагинов)
+2. Перезапустите сервер. `sm exts list` должен показать `ProtectCMDS`.
+
+Без `data/protectcmds/protectcmds.ini` (или с `protectcmds_enable=0`) расширение не загружается: `Failed to load settings`.
+
+## Хеширование SteamID
+
+Модуль `SteamIDHashing` выключен по умолчанию (`steamidhashing_enable=0`). Включенный, он заменяет SteamID каждого игрока на хеш от SteamID и соли. Прежде чем включать:
+
+- **SteamID на сервере меняются.** Админы (`admins_simple.ini`, `admins.cfg`), баны, VIP и статистика, привязанные к настоящим SteamID, перестают совпадать. Новый SteamID игрока виден в консоли сервера при заходе: `[STEAM_0:1:123] changed to [STEAM_0:0:456]`.
+- **Соль создается при первом запуске с включенным хешированием** в `data/protectcmds/protectcmds_steamid_salt.dat` (в консоли `[ProtectCMDS] Salt is loaded!`). Чтобы у игрока был один и тот же SteamID на нескольких серверах, скопируйте этот файл на все сервера до включения хеширования на них. Не публикуйте соль: зная ее, можно посчитать SteamID любого игрока.
+- **Если соль потерять, все SteamID изменятся.** Сделайте копию файла.
+- В `steamid_hash.txt` можно вручную задать SteamID для конкретного игрока: `STEAM_0:0:432548923 = STEAM_0:1:666`.
+
+## Статистика пакетов
+
+Модуль `FilterPacket` исправляет пустые UDP-пакеты и отбрасывает split-пакеты (v34). Исправление пустых пакетов, перехват `recvfrom` и статистика по IP сделаны по образцу [DoS Protect](http://www.ZombieX2.net/) (ZombieX2.net), поэтому ставить dosprotect отдельно не нужно. Сколько таких пакетов пришло и от кого, показывает серверная команда:
+
+```
+sm protectcmds packets         // статус, итоги и таблица IP | empty | split | flood | first seen | last seen
+sm protectcmds packets reset   // очистить
+```
+
+Если с одного IP (или со всех вместе) за `filterpacket_stats_log_interval` секунд пришло `filterpacket_stats_log_threshold` или больше таких пакетов, в лог SourceMod пишется строка с адресом и числом. Без атаки таких пакетов нет, и лог пустой. Таблица хранит 256 адресов, новые вытесняют давно не появлявшиеся.
+
+На v34 можно ограничить connectionless-пакеты (запросы сервера, challenge, connect) с одного IP в секунду: `filterpacket_connectionless_limit` (0 — без ограничения). Лишние отбрасываются и попадают в статистику как `flood`.
+
+## Обновление
+
+Автообновление включено по умолчанию (`[Updater]` в `protectcmds.ini`). При каждом старте сервера расширение сверяет sha256 своего файла с последним релизом. Если вышла новая версия, она скачивается в `extensions/protectcmds.ext.so.new`, проверяется по sha256 и атомарно (`rename()`) встает на место `protectcmds.ext.so`; загруженная копия при этом не меняется, новая начинает работать после следующего рестарта. Прошлая версия остается в `protectcmds.ext.so.prev`: для отката переименуйте ее обратно и перезапустите сервер. Конфиги и соль не трогаются.
+
+Проверка идет при загрузке расширения и ждет ответа GitHub: если GitHub с сервера недоступен, старт сервера задерживается (таймаут 10 с на соединение и на ответ). Отключается `protectcmds_updater_enable = 0`.
+
+HTTPS проверяет сертификат GitHub по корневым сертификатам, зашитым в `updater/trust_anchors.c` (Sectigo, USERTrust, ISRG, DigiCert), и по системному набору сертификатов сервера. Если GitHub сменит удостоверяющий центр, а системного набора на сервере нет, апдейтер напишет в лог ошибку сертификата; тогда `trust_anchors.c` нужно обновить (`brssl ta`) и выпустить новую версию.
+
+Ключ `protectcmds_updater_url` из конфигов 1.0.10 больше не используется (в лог пишется предупреждение): обновления берутся из релизов GitHub. По умолчанию это репозиторий, в котором собран `.so`; другой можно задать в `protectcmds_updater_repository`.
+
+Обновляя вручную, заменяйте только `extensions/protectcmds.ext.so` из архива: распаковка всего архива перезапишет ваши `protectcmds.ini` и `blockcmds.txt`.
+
+## Для разработчиков плагинов
+
+`scripting/include/protectcmds.inc`: форварды `ProtectCMDS_OnClientPreConnect`, `ProtectCMDS_OnClientPreConnectPost`, `ProtectCMDS_OnClientCommand`, `OnClientVoice` и натив `ProtectCMDS_GetAbsoluteFrameTime`.
+
+## Сборка
+
+См. `.github/workflows/build.yml`: Ubuntu 20.04, `make ENGINE=css34|css`; для SourceMod 1.13 — `SMLINE=sm113` с исходниками [alliedmodders/sourcemod](https://github.com/alliedmodders/sourcemod) (закрепленный коммит ветки `1.13-dev`, нужны сабмодули).
+
+Версия расширения (`sm exts list`) берется из git-тега: `make PCMDS_VERSION=1.2.0`, CI передает ее из `git describe` (тег `v1.2.0` → `1.2.0`). Без нее остается версия из `sdk/smsdk_config.h`.
+
+Релизы: тег `v*` создает релиз, push в `master` пересоздает пре-релиз `experimental`.

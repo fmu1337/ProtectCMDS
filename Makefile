@@ -143,6 +143,10 @@ CFLAGS += -DPOSIX -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp \
 	-Wno-write-strings -Wno-class-memaccess -Wno-packed-not-aligned -Wno-address
 CPPFLAGS += -Wno-non-virtual-dtor -fno-exceptions -fno-rtti
 
+ifneq "$(PCMDS_VERSION)" ""
+	CFLAGS += -DPCMDS_VERSION=\"$(PCMDS_VERSION)\"
+endif
+
 ifneq "$(PCMDS_REPOSITORY)" ""
 	CFLAGS += -DPCMDS_REPOSITORY=\"$(PCMDS_REPOSITORY)\"
 endif

@@ -45,6 +45,11 @@
 #define SMEXT_CONF_NAME			"ProtectCMDS [CS:S]"
 #define SMEXT_CONF_VERSION		"1.1.0"
 #endif
+/* CI passes the version from the git tag (v1.2.0 -> "1.2.0") */
+#ifdef PCMDS_VERSION
+#undef SMEXT_CONF_VERSION
+#define SMEXT_CONF_VERSION		PCMDS_VERSION
+#endif
 #define SMEXT_CONF_DESCRIPTION	"Exploit protection"
 #define SMEXT_CONF_AUTHOR		"WeSTMan"
 #define SMEXT_CONF_URL			"https://vk.com/id55942612"
