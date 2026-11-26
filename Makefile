@@ -27,6 +27,8 @@ OBJECTS += updater/updater.cpp updater/http.cpp updater/fileswap.cpp
 BEARSSL = third_party/bearssl
 BEARSSL_SRC := $(shell find $(BEARSSL)/src -name '*.c') updater/trust_anchors.c
 
+OBJECTS += helpers/rootconsole.cpp protectcmds/packetstats.cpp
+
 ##############################################
 ### CONFIGURE ANY OTHER FLAGS/OPTIONS HERE ###
 ##############################################
