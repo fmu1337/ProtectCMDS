@@ -56,9 +56,11 @@ jobs:
           git fetch -q --depth 1 origin "$SM113_COMMIT"
           git checkout -q FETCH_HEAD
           git submodule update -q --init --recursive --depth 1
-          API=$(sed -nE 's/^#define SMINTERFACE_EXTENSIONAPI_VERSION[[:space:]]+([0-9]+).*/\1/p' public/IExtensionSys.h)
-          echo "SourceMod 1.13 $SM113_COMMIT, extension API $API"
-          echo "SM113_API=$API" >> "$GITHUB_ENV"
+          api() { sed -nE "s/^[[:space:]]*#define[[:space:]]+SMINTERFACE_EXTENSIONAPI_$1[[:space:]]+([0-9]+).*/\\1/p" public/IExtensionSys.h; }
+          MIN=$(api VERSION_MIN); MAX=$(api VERSION)
+          test -n "$MIN" && test -n "$MAX"
+          echo "SourceMod 1.13 $SM113_COMMIT, extension API $MIN..$MAX"
+          { echo "SM113_API_MIN=$MIN"; echo "SM113_API_MAX=$MAX"; } >> "$GITHUB_ENV"
 
       - name: Build
         run: |
@@ -112,7 +114,8 @@ jobs:
 
             echo "API $ENGINE: build $(api dist/protectcmds.$ENGINE.ext.so), sm113 $(api dist/protectcmds.$ENGINE.sm113.ext.so)"
             test "$(api dist/protectcmds.$ENGINE.ext.so)" = 7
-            test "$(api dist/protectcmds.$ENGINE.sm113.ext.so)" = "$SM113_API"
+            API=$(api dist/protectcmds.$ENGINE.sm113.ext.so)
+            test "$API" -ge "$SM113_API_MIN" && test "$API" -le "$SM113_API_MAX"
 
             for so in protectcmds.$ENGINE.ext.so protectcmds.$ENGINE.sm113.ext.so; do
               /tmp/verify/hashcheck "dist/$so" > "/tmp/verify/$so.txt"
